@@ -20,6 +20,8 @@ Event :: struct {
 ButtonActions :: union {
 	Place_Object,
 	Spawn_Traveler,
+	Select_Target,
+	Output_View,
 }
 
 Place_Object :: struct {
@@ -27,8 +29,16 @@ Place_Object :: struct {
 }
 
 Spawn_Traveler :: struct {
-	model:    ModelType,
-	position: rl.Vector3,
+	building_id: int,
+	model:       ModelType,
+	position:    rl.Vector3,
+}
+
+Select_Target :: struct {
+	output_id: int,
+}
+Output_View :: struct {
+	building_id: int,
 }
 
 Gui_Buttons_Rectangles: [9]rl.Rectangle = {
@@ -59,11 +69,26 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 }
 
 get_selected_entity_action_events_cube :: proc(
+	building_id: int,
 	modelType: ModelType,
 	position: rl.Vector3,
 ) -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
-		{"Add", Spawn_Traveler{model = modelType, position = position}},
+		{"Add", Spawn_Traveler{building_id = building_id, model = modelType, position = position}},
+		{"Output", Output_View{building_id = building_id}},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	}
+}
+
+get_selected_entity_action_events_travel :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Target", Select_Target{}},
 		{},
 		{},
 		{},
@@ -72,6 +97,20 @@ get_selected_entity_action_events_cube :: proc(
 		{},
 		{},
 		{},
+	}
+}
+
+get_selected_entity_actions_events_output :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Output 1", Select_Target{output_id = 0}},
+		{"Output 2", Select_Target{output_id = 1}},
+		{"Output 3", Select_Target{output_id = 2}},
+		{"Output 4", Select_Target{output_id = 3}},
+		{"Output 5", Select_Target{output_id = 4}},
+		{"Output 6", Select_Target{output_id = 5}},
+		{"Output 7", Select_Target{output_id = 6}},
+		{"Output 8", Select_Target{output_id = 7}},
+		{"Output 8", Select_Target{output_id = 7}},
 	}
 }
 
@@ -93,6 +132,8 @@ get_selected_entity_action_events :: proc(modelType: ModelType) -> Selected_Enti
 		return Selected_Entity_Action_Events{}
 	case ModelType.Boat:
 		return Selected_Entity_Action_Events{}
+	case .Point:
+		return Selected_Entity_Action_Events{}
 	}
 	return Selected_Entity_Action_Events{}
 }
@@ -106,7 +147,15 @@ handle_button :: proc() {
 			g.current_placing_info.collision_info = false
 			g.player_mode = .Placing
 		case Spawn_Traveler:
-			spawn_travel_entity(d.position, d.model)
+			fmt.println(d)
+			spawn_travel_entity(d.building_id, d.position, d.model)
+		case Select_Target:
+			g.player_mode = .Selecting
+			g.current_output_info.output_id = d.output_id
+		case Output_View:
+			g.current_output_info.building_id = d.building_id
+			g.current_output_info.open = true
+			g.player_mode = .Editing
 		case:
 			fmt.println("unhandled?")
 		}
@@ -135,10 +184,22 @@ draw_default_button_ui :: proc() {
 
 draw_button_ui :: proc(selected: SelectedEntity) {
 	rl.GuiEnable()
-	rl.GuiPanel(
-		rl.Rectangle{20, 20, 210, 128},
-		fmt.ctprintf("%s", type_to_string(selected.type)),
-	)
+	rl.GuiPanel(rl.Rectangle{20, 20, 210, 128}, fmt.ctprintf("%s", type_to_string(selected.type)))
+	if g.current_output_info.open {
+		rl.GuiPanel(rl.Rectangle{20, 148, 210, 128}, fmt.ctprintf("outputs"))
+		rl.GuiEnable()
+		selected_buttons := get_selected_entity_actions_events_output()
+		for i in 0 ..< len(get_selected_entity_actions_events_output()) {
+			gui_button_rectangle := Gui_Buttons_Rectangles[i]
+			gui_button_rectangle.y = gui_button_rectangle.y + (146)
+			if rl.GuiButton(
+				gui_button_rectangle,
+				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
+			) {
+				g.button_event = selected_buttons[i]
+			}
+		}
+	}
 
 	for i in 0 ..< len(selected.selected_entity_actions) {
 		if selected.selected_entity_actions[i].Data == nil {

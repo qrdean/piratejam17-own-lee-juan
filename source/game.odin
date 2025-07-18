@@ -50,12 +50,13 @@ Game_Memory :: struct {
 	currentRay:             rl.Ray,
 	mouseRay:               rl.Ray,
 	allResources:           AllResources,
-	selected:               SelectedEntity,
 	waterPos:               rl.Vector3,
-	current_collision_info: rl.RayCollision,
 	button_event:           Event,
 	player_mode:            PlayerMode,
+	selected:               SelectedEntity,
+	current_collision_info: rl.RayCollision,
 	current_placing_info:   Placing_Info,
+	current_output_info:    Output_Info,
 	debug_info:             DebugInfo,
 }
 
@@ -71,10 +72,19 @@ Placing_Info :: struct {
 	collision_info: bool,
 }
 
+Output_Info :: struct {
+	open:                    bool,
+	building_id:             int,
+	output_id:               int,
+	collision_info:          bool,
+	destination_building_id: int,
+}
+
 PlayerMode :: enum {
 	Editing,
 	Viewing,
 	Placing,
+	Selecting,
 }
 
 AllResources :: struct {
@@ -88,6 +98,7 @@ AllResources :: struct {
 	groundQuad:     GroundQuad,
 	baseCubeModel:  rl.Model,
 	terrainModel:   rl.Model,
+	pointModel:     rl.Model,
 }
 
 ThreeDeeEntity :: struct {
@@ -101,16 +112,27 @@ ThreeDeeEntity :: struct {
 FactoryEntity :: struct {
 	using ThreeDeeEntity: ThreeDeeEntity,
 	using Constructor:    Constructor,
-	input_type:           ItemType,
-	input_count:          i32,
-	output_type:          ItemType,
-	output_count:         i32,
+	output_workers:       [9]Worker,
+	worker_count:         int,
+}
+
+Worker :: struct {
+	origin_id:      int,
+	destination_id: int,
+}
+
+TravelEntityAction :: enum {
+	Pickup,
+	Dropoff,
 }
 
 TravelEntity :: struct {
 	using ThreeDeeEntity: ThreeDeeEntity,
+	worker_id:            int,
+	building_id:          int,
 	current_cargo:        Item,
 	current_target_id:    int,
+	action:               TravelEntityAction,
 	// Add an array of path targets for pathfinding
 }
 
@@ -219,17 +241,20 @@ GroundQuad :: struct {
 ModelType :: enum {
 	Cube,
 	Rectangle,
+	Point,
 	Boat,
 }
 
 get_model :: proc(stuff: ModelType) -> rl.Model {
 	switch stuff {
-	case ModelType.Cube:
+	case .Cube:
 		return g.allResources.cubeModel
-	case ModelType.Rectangle:
+	case .Rectangle:
 		return g.allResources.rectangleModel
-	case ModelType.Boat:
+	case .Boat:
 		return g.allResources.boatModel
+	case .Point:
+		return g.allResources.pointModel
 	}
 	return g.allResources.cubeModel
 }
@@ -252,6 +277,8 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Rectangle"
 	case ModelType.Boat:
 		return "Boat"
+	case .Point:
+		return "Point"
 	}
 	return "undefined"
 }
@@ -260,6 +287,8 @@ get_model_bounding_box :: proc(stuff: ModelType) -> rl.BoundingBox {
 	#partial switch stuff {
 	case .Cube:
 		return rl.GetModelBoundingBox(get_model(stuff))
+	case .Point:
+		return rl.GetModelBoundingBox(get_model(.Point))
 	}
 	return rl.GetModelBoundingBox(g.allResources.cubeModel)
 }
@@ -304,16 +333,26 @@ bounding_box_and_transform :: proc(bb: rl.BoundingBox, position: rl.Vector3) -> 
 	}
 }
 
-spawn_travel_entity :: proc(position: rl.Vector3, model_type: ModelType) {
+spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: ModelType) {
+	worker_count := g.travelPoints[building_id].worker_count
+	if worker_count >= 9 {
+		return
+	}
+
+	worker := g.travelPoints[building_id].output_workers[worker_count]
+	g.travelPoints[building_id].output_workers[worker_count].origin_id = building_id
 	travel_entity := TravelEntity {
 		type = model_type,
 		position = position,
 		bb = get_model_bounding_box(model_type),
 		color = rl.BLUE,
 		current_cargo = Item{ItemType = .Gnome},
-		current_target_id = 1,
+		current_target_id = worker.destination_id,
+		building_id = building_id,
+		worker_id = worker_count,
 	}
 	append(&g.travel, travel_entity)
+	g.travelPoints[building_id].worker_count += 1
 }
 
 ////////////////////////////// UPDATES ////////////////////////////////
@@ -352,25 +391,50 @@ update_shaders :: proc() {
 	)
 }
 
+handle_collisions_three_dee :: proc(three_dee: ThreeDeeEntity, id: int) -> rl.RayCollision {
+	cubeBB := bounding_box_and_transform(three_dee.bb, three_dee.position)
+	rCollision := rl.GetRayCollisionBox(g.currentRay, cubeBB)
+	if rCollision.hit {
+		fmt.println(id)
+		g.selected = SelectedEntity {
+			id                      = id,
+			ThreeDeeEntity          = three_dee,
+			selected_entity_actions = get_selected_entity_action_events_cube(
+				id,
+				three_dee.type,
+				three_dee.position,
+			),
+		}
+		fmt.println(g.selected.id)
+	}
+	return rCollision
+}
+
 handle_editor_update :: proc() {
 	if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
 		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
-		for i in 0 ..< len(g.cubes) {
-			cubeBB := bounding_box_and_transform(g.cubes[i].bb, g.cubes[i].position)
-			rCollision := rl.GetRayCollisionBox(g.currentRay, cubeBB)
-			if rCollision.hit {
+		// for i in 0 ..< len(g.cubes) {
+		// 	cube := g.cubes[i]
+		// 	rCollision := handle_collisions_three_dee(cube, i)
+		// 	g.cubes[i].selected = rCollision.hit
+		// }
 
-				g.selected = SelectedEntity {
-					id                      = i,
-					ThreeDeeEntity          = g.cubes[i],
-					selected_entity_actions = get_selected_entity_action_events_cube(
-						g.cubes[i].type,
-						g.cubes[i].position,
-					),
-				}
-			}
-			g.cubes[i].selected = rCollision.hit
+		for i in 0 ..< len(g.travelPoints) {
+			travelPoint := g.travelPoints[i]
+			rCollision := handle_collisions_three_dee(travelPoint, i)
+			fmt.println(g.selected.id)
+			g.travelPoints[i].selected = rCollision.hit
 		}
+
+		// for i in 0 ..< len(g.travel) {
+		// 	traveler := g.travel[i]
+		// 	rCollision := handle_collisions_three_dee(traveler, i)
+		// 	g.travel[i].selected = rCollision.hit
+		// }
+	}
+
+	if rl.IsMouseButtonDown(.RIGHT) {
+		rl.UpdateCamera(&g.camera, .FREE)
 	}
 }
 
@@ -389,9 +453,9 @@ handle_placing_mode :: proc() {
 		}
 	}
 	if rl.IsMouseButtonPressed(.LEFT) {
-		if g.current_placing_info.collision_info {
-			#partial switch g.current_placing_info.modelType {
-			case .Cube:
+		#partial switch g.current_placing_info.modelType {
+		case .Cube:
+			if g.current_placing_info.collision_info {
 				cubeEntity := ThreeDeeEntity {
 					position = rl.Vector3 {
 						g.current_collision_info.point.x,
@@ -403,21 +467,21 @@ handle_placing_mode :: proc() {
 					bb       = get_model_bounding_box(g.current_placing_info.modelType),
 				}
 				append(&g.cubes, cubeEntity)
-			case .Rectangle:
-				entity := FactoryEntity {
-					position = rl.Vector3 {
-						g.current_collision_info.point.x,
-						1.0, //TODO: calculate this based on model height
-						g.current_collision_info.point.z,
-					},
-					type     = g.current_placing_info.modelType,
-					color    = rl.YELLOW,
-					bb       = get_model_bounding_box(g.current_placing_info.modelType),
-				}
-				append(&g.travelPoints, entity)
 			}
-			g.player_mode = .Editing
+		case .Rectangle:
+			entity := FactoryEntity {
+				position = rl.Vector3 {
+					g.current_collision_info.point.x,
+					1.0, //TODO: calculate this based on model height
+					g.current_collision_info.point.z,
+				},
+				type     = g.current_placing_info.modelType,
+				color    = rl.YELLOW,
+				bb       = get_model_bounding_box(g.current_placing_info.modelType),
+			}
+			append(&g.travelPoints, entity)
 		}
+		g.player_mode = .Editing
 	}
 }
 
@@ -458,11 +522,42 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		// 		g.travelPoints[travel_entity.current_target_id].output_type
 		// }
 
-		next_id := travel_entity.current_target_id + 1
-		if len(g.travelPoints) <= next_id {
-			travel_entity.current_target_id = 0
+		origin_building := g.travelPoints[travel_entity.building_id]
+		if travel_entity.current_target_id ==
+		   origin_building.output_workers[travel_entity.worker_id].destination_id {
+			travel_entity.current_target_id =
+				origin_building.output_workers[travel_entity.worker_id].origin_id
 		} else {
-			travel_entity.current_target_id = next_id
+			travel_entity.current_target_id =
+				origin_building.output_workers[travel_entity.worker_id].destination_id
+		}
+	}
+}
+
+handle_selecting_update :: proc() {
+	g.current_output_info.collision_info = false
+	for i in 0 ..< len(g.travelPoints) {
+		if i == int(g.current_output_info.building_id) {
+			continue
+		}
+		bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
+		if rl.CheckCollisionBoxes(
+			bb,
+			bounding_box_and_transform(
+				get_model_bounding_box(.Point),
+				g.current_collision_info.point,
+			),
+		) {
+			g.current_output_info.collision_info = true
+			g.current_output_info.destination_building_id = i
+		}
+	}
+
+	if rl.IsMouseButtonPressed(.LEFT) {
+		if g.current_output_info.collision_info {
+			g.travelPoints[int(g.current_output_info.building_id)].output_workers[g.current_output_info.output_id].destination_id =
+				g.current_output_info.destination_building_id
+			g.player_mode = .Editing
 		}
 	}
 }
@@ -491,6 +586,8 @@ update :: proc() {
 		handle_editor_update()
 	case .Placing:
 		handle_placing_mode()
+	case .Selecting:
+		handle_selecting_update()
 	}
 
 	for i in 0 ..< len(g.travel) {
@@ -582,6 +679,15 @@ draw_placing_object :: proc() {
 	rl.DrawModel(get_model(g.current_placing_info.modelType), current_collision_point, 1., color)
 }
 
+draw_selecting_point :: proc() {
+	current_collision_point := g.current_collision_info.point
+	color := rl.RED
+	if g.current_output_info.collision_info {
+		color = rl.GREEN
+	}
+	rl.DrawModel(get_model(.Point), current_collision_point, 1., color)
+}
+
 draw_three_dee_entity :: proc(three_dee: ThreeDeeEntity) {
 	rl.DrawModel(get_model(three_dee.type), three_dee.position, 1., three_dee.color)
 }
@@ -622,6 +728,10 @@ draw :: proc() {
 		draw_placing_object()
 	}
 
+	if g.player_mode == .Selecting {
+		draw_selecting_point()
+	}
+
 	for i in 0 ..< len(g.cubes) {
 		draw_three_dee_entity(g.cubes[i])
 		if g.player_mode == .Editing && g.cubes[i].selected {
@@ -632,7 +742,7 @@ draw :: proc() {
 	for i in 0 ..< len(g.travelPoints) {
 		draw_three_dee_entity(g.travelPoints[i])
 		if g.player_mode == .Editing && g.travelPoints[i].selected {
-			draw_editing_layer(g.cubes[i])
+			draw_editing_layer(g.travelPoints[i])
 		}
 	}
 
@@ -659,6 +769,7 @@ draw :: proc() {
 		draw_button_ui(g.selected)
 		draw_default_button_ui()
 	}
+
 
 	rl.EndDrawing()
 }
@@ -721,6 +832,12 @@ game_init :: proc() {
 	rectBB := rl.GetModelBoundingBox(rectModel)
 	fmt.println(rectBB)
 
+	pointSize := rl.Vector3(0.25)
+	pointMesh := rl.GenMeshSphere(pointSize.x, 16, 16)
+	pointModel := rl.LoadModelFromMesh(pointMesh)
+	pointBB := rl.GetModelBoundingBox(pointModel)
+	fmt.println(pointBB)
+
 	boatModel := rl.LoadModel("assets/boat2.glb")
 	boatBb := rl.GetModelBoundingBox(boatModel)
 	fmt.println(boatBb)
@@ -756,6 +873,7 @@ game_init :: proc() {
 		groundQuad     = ground_quad,
 		baseCubeModel  = baseCubeModel,
 		terrainModel   = terrainModel,
+		pointModel     = pointModel,
 	}
 
 	g^ = Game_Memory {
@@ -772,56 +890,35 @@ game_init :: proc() {
 		debug_info     = DebugInfo{},
 	}
 
-	// for i in 0 ..< 2 {
-	// 	cubeEntity := ThreeDeeEntity {
-	// 		// mesh     = cubeMesh,
-	// 		// model    = cubeModel,
-	// 		position = rl.Vector3{f32(i), 1., f32(i * 2)},
-	// 		type     = ModelType.Cube,
-	// 		color    = rl.BROWN,
-	// 		bb       = cubeBB,
-	// 	}
-	// 	append(&g.cubes, cubeEntity)
-	// }
+	for i in 0 ..< 3 {
+		if (i % 2 == 0) {
+			wareHouseEntity := FactoryEntity {
+				position = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
+				type     = ModelType.Rectangle,
+				color    = rl.ORANGE,
+				bb       = rectBB,
+				recipe   = get_recipe(.Grass),
+			}
 
-	for i in 0 ..< 2 {
-		wareHouseEntity := FactoryEntity {
-			position     = rl.Vector3{f32(i * 50) + 15, 1., f32(i * 50) + 15},
-			type         = ModelType.Rectangle,
-			color        = rl.ORANGE,
-			bb           = rectBB,
-			input_type   = .Gnome,
-			output_type  = .Gnome,
-			output_count = 99,
-			recipe       = get_recipe(.Grass),
-		}
+			for key in wareHouseEntity.recipe.input_map {
+				wareHouseEntity.current_inputs[key] = 0
+			}
+			append(&g.travelPoints, wareHouseEntity)
+		} else {
+			wareHouseEntity := FactoryEntity {
+				position = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
+				type     = ModelType.Rectangle,
+				color    = rl.ORANGE,
+				bb       = rectBB,
+				recipe   = get_recipe(.Grass),
+			}
 
-		for key in wareHouseEntity.recipe.input_map {
-			wareHouseEntity.current_inputs[key] = 0
+			for key in wareHouseEntity.recipe.input_map {
+				wareHouseEntity.current_inputs[key] = 0
+			}
+			append(&g.travelPoints, wareHouseEntity)
 		}
-		append(&g.travelPoints, wareHouseEntity)
 	}
-
-	// for i in 0 ..< 1 {
-	// 	boatEntity := ThreeDeeEntity {
-	// 		position = rl.Vector3{f32(i), 2., f32(i)},
-	// 		type     = ModelType.Boat,
-	// 		bb       = boatBb,
-	// 	}
-	// 	append(&g.cubes, boatEntity)
-	// }
-
-	// for i in 0 ..< 2 {
-	// 	cubeEntity := ThreeDeeEntity {
-	// 		// mesh     = cubeMesh,
-	// 		// model    = cubeModel,
-	// 		position = rl.Vector3{f32(i * 2), 1., f32(i)},
-	// 		type     = ModelType.Rectangle,
-	// 		bb       = rectBB,
-	// 	}
-	// 	append(&g.cubes, cubeEntity)
-	// }
-
 
 	game_hot_reloaded(g)
 }

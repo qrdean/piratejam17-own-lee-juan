@@ -7,6 +7,15 @@
 
 ~~Have workers that transport these items between places. Need pathfinding between two points.~~
 
+### Worker instructions
+Workers can have instructions. 
+old??
+Click building. Has a number of output worker slots (more outputs gives more slots)
+Buildings outputs can connect to another building, creating a path
+e.g. Building a has output x Building b has input x click (a) -> select output x connect building b.
+
+Worker has an receive and dropoff building selection. Set these via the context menu and it will build a path between the two
+
 Have a transform entity that allows the user to select a recipe to transform the item into something else
 Collector Box. Ships off to somewhere else
 
