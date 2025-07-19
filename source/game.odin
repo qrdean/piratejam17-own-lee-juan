@@ -509,13 +509,6 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		)
 		travel_entity.position = next_pos
 	} else {
-		factory := g.travelPoints[travel_entity.current_target_id]
-		recipe := get_recipe_from_memory(factory.recipe_type)
-		if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
-			current_item_type := travel_entity.current_cargo.ItemType
-			g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] += 1
-			travel_entity.current_cargo.ItemType = .None
-		}
 
 		// if g.travelPoints[travel_entity.current_target_id].input_type ==
 		//    travel_entity.current_cargo.ItemType {
@@ -533,14 +526,35 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		// 		g.travelPoints[travel_entity.current_target_id].output_type
 		// }
 
-		origin_building := g.travelPoints[travel_entity.building_id]
-		if travel_entity.current_target_id ==
-		   origin_building.output_workers[travel_entity.worker_id].destination_id {
-			travel_entity.current_target_id =
-				origin_building.output_workers[travel_entity.worker_id].origin_id
+		workers :=
+			g.travelPoints[travel_entity.building_id].output_workers[travel_entity.worker_id]
+		if travel_entity.current_target_id == workers.destination_id {
+			// Handle drop off
+			factory := g.travelPoints[travel_entity.current_target_id]
+			recipe := get_recipe_from_memory(factory.recipe_type)
+			if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
+				current_item_type := travel_entity.current_cargo.ItemType
+				g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
+				1
+				travel_entity.current_cargo.ItemType = .None
+			}
+
+			travel_entity.current_target_id = workers.origin_id
 		} else {
-			travel_entity.current_target_id =
-				origin_building.output_workers[travel_entity.worker_id].destination_id
+			// Handle pick up
+			factory := g.travelPoints[travel_entity.current_target_id]
+			// recipe := get_recipe_from_memory(factory.recipe_type)
+			for key in factory.current_outputs {
+				fmt.println(factory.current_outputs)
+				if g.travelPoints[travel_entity.current_target_id].current_outputs[key] > 0 {
+					g.travelPoints[travel_entity.current_target_id].current_outputs[key] -= 1
+					travel_entity.current_cargo.ItemType = key
+				}
+			}
+			fmt.println(travel_entity.current_cargo.ItemType)
+
+
+			travel_entity.current_target_id = workers.destination_id
 		}
 	}
 }
@@ -916,6 +930,9 @@ game_init :: proc() {
 			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
 				wareHouseEntity.current_inputs[key] = 0
 			}
+			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).output_map {
+				wareHouseEntity.current_outputs[key] = 40
+			}
 			append(&g.travelPoints, wareHouseEntity)
 		} else {
 			wareHouseEntity := FactoryEntity {
@@ -928,6 +945,9 @@ game_init :: proc() {
 
 			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
 				wareHouseEntity.current_inputs[key] = 0
+			}
+			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).output_map {
+				wareHouseEntity.current_outputs[key] = 40
 			}
 			append(&g.travelPoints, wareHouseEntity)
 		}
