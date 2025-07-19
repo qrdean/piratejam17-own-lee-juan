@@ -50,6 +50,7 @@ Game_Memory :: struct {
 	currentRay:             rl.Ray,
 	mouseRay:               rl.Ray,
 	allResources:           AllResources,
+	all_recipes:            AllRecipes,
 	waterPos:               rl.Vector3,
 	button_event:           Event,
 	player_mode:            PlayerMode,
@@ -99,6 +100,11 @@ AllResources :: struct {
 	baseCubeModel:  rl.Model,
 	terrainModel:   rl.Model,
 	pointModel:     rl.Model,
+}
+
+AllRecipes :: struct {
+	grass_recipe:    Recipe,
+	concrete_recipe: Recipe,
 }
 
 ThreeDeeEntity :: struct {
@@ -178,6 +184,21 @@ get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 	return {}
 }
 
+get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
+	switch recipe_type {
+	case .Grass:
+		return g.all_recipes.grass_recipe
+	case .Concrete:
+		return g.all_recipes.concrete_recipe
+	}
+	return {}
+}
+
+clean_up_recipe :: proc(recipe: Recipe) {
+	delete(recipe.input_map)
+	delete(recipe.output_map)
+}
+
 check_type_for_recipe :: proc(item_type: ItemType, recipe: Recipe) -> bool {
 	for key in recipe.input_map {
 		if key == item_type {
@@ -212,7 +233,8 @@ add_qty_to_output :: proc(constructor: ^Constructor, recipe: Recipe) {
 }
 
 Constructor :: struct {
-	recipe:          Recipe,
+	// recipe:          Recipe,
+	recipe_type:     RecipeType,
 	current_inputs:  map[ItemType]i32,
 	current_outputs: map[ItemType]i32,
 }
@@ -220,14 +242,15 @@ Constructor :: struct {
 clean_up_constructor :: proc(constructor: ^Constructor) {
 	delete(constructor.current_inputs)
 	delete(constructor.current_outputs)
-	delete(constructor.recipe.input_map)
-	delete(constructor.recipe.output_map)
+	// delete(constructor.recipe.input_map)
+	// delete(constructor.recipe.output_map)
 }
 
 transform_constructor_item :: proc(constructor: ^Constructor) {
-	if check_item_input_to_recipe(constructor.current_inputs, constructor.recipe) {
-		remove_qty_from_input(&constructor.current_inputs, constructor.recipe)
-		add_qty_to_output(constructor, constructor.recipe)
+	recipe := get_recipe_from_memory(constructor.recipe_type)
+	if check_item_input_to_recipe(constructor.current_inputs, recipe) {
+		remove_qty_from_input(&constructor.current_inputs, recipe)
+		add_qty_to_output(constructor, recipe)
 	}
 }
 
@@ -283,17 +306,6 @@ type_to_string :: proc(modelType: ModelType) -> string {
 	return "undefined"
 }
 
-get_model_bounding_box :: proc(stuff: ModelType) -> rl.BoundingBox {
-	#partial switch stuff {
-	case .Cube:
-		return rl.GetModelBoundingBox(get_model(stuff))
-	case .Point:
-		return rl.GetModelBoundingBox(get_model(.Point))
-	}
-	return rl.GetModelBoundingBox(g.allResources.cubeModel)
-}
-
-
 game_camera :: proc() -> rl.Camera2D {
 	w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
@@ -344,7 +356,7 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 	travel_entity := TravelEntity {
 		type = model_type,
 		position = position,
-		bb = get_model_bounding_box(model_type),
+		bb = rl.GetModelBoundingBox(get_model(model_type)),
 		color = rl.BLUE,
 		current_cargo = Item{ItemType = .Gnome},
 		current_target_id = worker.destination_id,
@@ -395,7 +407,6 @@ handle_collisions_three_dee :: proc(three_dee: ThreeDeeEntity, id: int) -> rl.Ra
 	cubeBB := bounding_box_and_transform(three_dee.bb, three_dee.position)
 	rCollision := rl.GetRayCollisionBox(g.currentRay, cubeBB)
 	if rCollision.hit {
-		fmt.println(id)
 		g.selected = SelectedEntity {
 			id                      = id,
 			ThreeDeeEntity          = three_dee,
@@ -405,7 +416,6 @@ handle_collisions_three_dee :: proc(three_dee: ThreeDeeEntity, id: int) -> rl.Ra
 				three_dee.position,
 			),
 		}
-		fmt.println(g.selected.id)
 	}
 	return rCollision
 }
@@ -445,7 +455,7 @@ handle_placing_mode :: proc() {
 		if rl.CheckCollisionBoxes(
 			bb,
 			bounding_box_and_transform(
-				get_model_bounding_box(g.current_placing_info.modelType),
+				rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
 				g.current_collision_info.point,
 			),
 		) {
@@ -464,7 +474,7 @@ handle_placing_mode :: proc() {
 					},
 					type     = g.current_placing_info.modelType,
 					color    = rl.BROWN,
-					bb       = get_model_bounding_box(g.current_placing_info.modelType),
+					bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
 				}
 				append(&g.cubes, cubeEntity)
 			}
@@ -477,7 +487,7 @@ handle_placing_mode :: proc() {
 				},
 				type     = g.current_placing_info.modelType,
 				color    = rl.YELLOW,
-				bb       = get_model_bounding_box(g.current_placing_info.modelType),
+				bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
 			}
 			append(&g.travelPoints, entity)
 		}
@@ -500,7 +510,8 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		travel_entity.position = next_pos
 	} else {
 		factory := g.travelPoints[travel_entity.current_target_id]
-		if check_type_for_recipe(travel_entity.current_cargo.ItemType, factory.recipe) {
+		recipe := get_recipe_from_memory(factory.recipe_type)
+		if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
 			current_item_type := travel_entity.current_cargo.ItemType
 			g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] += 1
 			travel_entity.current_cargo.ItemType = .None
@@ -544,7 +555,7 @@ handle_selecting_update :: proc() {
 		if rl.CheckCollisionBoxes(
 			bb,
 			bounding_box_and_transform(
-				get_model_bounding_box(.Point),
+				rl.GetModelBoundingBox(get_model(.Point)),
 				g.current_collision_info.point,
 			),
 		) {
@@ -558,6 +569,7 @@ handle_selecting_update :: proc() {
 			g.travelPoints[int(g.current_output_info.building_id)].output_workers[g.current_output_info.output_id].destination_id =
 				g.current_output_info.destination_building_id
 			g.player_mode = .Editing
+			g.current_output_info.open = false
 		}
 	}
 }
@@ -876,44 +888,45 @@ game_init :: proc() {
 		pointModel     = pointModel,
 	}
 
-	g^ = Game_Memory {
-		run            = true,
-		some_number    = 100,
+	recipes := AllRecipes {
+		grass_recipe    = get_recipe(.Grass),
+		concrete_recipe = get_recipe(.Concrete),
+	}
 
-		// You can put textures, sounds and music in the `assets` folder. Those
-		// files will be part any release or web build.
-		player_texture = rl.LoadTexture("assets/round_cat.png"),
-		camera         = get_new_camera(),
-		// editing          = false,
-		allResources   = resources,
-		player_mode    = PlayerMode.Viewing,
-		debug_info     = DebugInfo{},
+	g^ = Game_Memory {
+		run          = true,
+		some_number  = 100,
+		camera       = get_new_camera(),
+		allResources = resources,
+		all_recipes  = recipes,
+		player_mode  = PlayerMode.Viewing,
+		debug_info   = DebugInfo{},
 	}
 
 	for i in 0 ..< 3 {
 		if (i % 2 == 0) {
 			wareHouseEntity := FactoryEntity {
-				position = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
-				type     = ModelType.Rectangle,
-				color    = rl.ORANGE,
-				bb       = rectBB,
-				recipe   = get_recipe(.Grass),
+				position    = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
+				type        = ModelType.Rectangle,
+				color       = rl.ORANGE,
+				bb          = rectBB,
+				recipe_type = .Grass,
 			}
 
-			for key in wareHouseEntity.recipe.input_map {
+			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
 				wareHouseEntity.current_inputs[key] = 0
 			}
 			append(&g.travelPoints, wareHouseEntity)
 		} else {
 			wareHouseEntity := FactoryEntity {
-				position = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
-				type     = ModelType.Rectangle,
-				color    = rl.ORANGE,
-				bb       = rectBB,
-				recipe   = get_recipe(.Grass),
+				position    = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
+				type        = ModelType.Rectangle,
+				color       = rl.ORANGE,
+				bb          = rectBB,
+				recipe_type = .Grass,
 			}
 
-			for key in wareHouseEntity.recipe.input_map {
+			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
 				wareHouseEntity.current_inputs[key] = 0
 			}
 			append(&g.travelPoints, wareHouseEntity)
@@ -943,6 +956,8 @@ game_shutdown :: proc() {
 	for &i in g.travelPoints {
 		clean_up_constructor(&i)
 	}
+	clean_up_recipe(g.all_recipes.grass_recipe)
+	clean_up_recipe(g.all_recipes.concrete_recipe)
 	delete(g.cubes)
 	delete(g.travelPoints)
 	delete(g.travel)

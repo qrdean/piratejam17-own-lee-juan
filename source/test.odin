@@ -8,7 +8,7 @@ test_constructor_scenario_1 :: proc() {
 	defer delete(recipe.output_map)
 	fmt.println(recipe)
 	constructor := Constructor {
-		recipe = recipe,
+		recipe_type = .Grass,
 	}
 	defer delete(constructor.current_inputs)
 	defer delete(constructor.current_outputs)
@@ -27,7 +27,7 @@ test_constructor_scenario_2 :: proc() {
 	defer delete(recipe.output_map)
 	fmt.println(recipe)
 	constructor := Constructor {
-		recipe = recipe,
+		recipe_type = .Concrete,
 	}
 	defer delete(constructor.current_inputs)
 	defer delete(constructor.current_outputs)
@@ -47,7 +47,7 @@ test_constructor_scenario_3 :: proc() {
 	defer delete(recipe.output_map)
 	fmt.println(recipe)
 	constructor := Constructor {
-		recipe = recipe,
+		recipe_type = .Concrete,
 	}
 	defer delete(constructor.current_inputs)
 	defer delete(constructor.current_outputs)
