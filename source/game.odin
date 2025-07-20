@@ -58,6 +58,8 @@ Game_Memory :: struct {
 	current_collision_info: rl.RayCollision,
 	current_placing_info:   Placing_Info,
 	current_output_info:    Output_Info,
+	current_recipe_info:    RecipeInfo,
+	item_pickup:            map[ItemType]i32,
 	debug_info:             DebugInfo,
 }
 
@@ -79,6 +81,12 @@ Output_Info :: struct {
 	output_id:               int,
 	collision_info:          bool,
 	destination_building_id: int,
+}
+
+RecipeInfo :: struct {
+	open:        bool,
+	building_id: int,
+	recipe_type: RecipeType,
 }
 
 PlayerMode :: enum {
@@ -103,8 +111,9 @@ AllResources :: struct {
 }
 
 AllRecipes :: struct {
-	grass_recipe:    Recipe,
 	concrete_recipe: Recipe,
+	grass_recipe:    Recipe,
+	gnome_recipe:    Recipe,
 }
 
 ThreeDeeEntity :: struct {
@@ -160,6 +169,7 @@ Item :: struct {
 RecipeType :: enum {
 	Grass,
 	Concrete,
+	Gnome,
 }
 
 Recipe :: struct {
@@ -182,6 +192,12 @@ get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 		b := make(map[ItemType]i32)
 		b[.Concrete] = 1
 		return {input_map = a, output_map = b}
+	case .Gnome:
+		a := make(map[ItemType]i32)
+		b := make(map[ItemType]i32)
+		a[.None] = 0
+		b[.Gnome] = 1
+		return {input_map = a, output_map = b}
 	}
 	return {}
 }
@@ -192,6 +208,8 @@ get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
 		return g.all_recipes.grass_recipe
 	case .Concrete:
 		return g.all_recipes.concrete_recipe
+	case .Gnome:
+		return g.all_recipes.gnome_recipe
 	}
 	return {}
 }
@@ -235,7 +253,6 @@ add_qty_to_output :: proc(constructor: ^Constructor, recipe: Recipe) {
 }
 
 Constructor :: struct {
-	// recipe:          Recipe,
 	recipe_type:     RecipeType,
 	current_inputs:  map[ItemType]i32,
 	current_outputs: map[ItemType]i32,
@@ -244,8 +261,6 @@ Constructor :: struct {
 clean_up_constructor :: proc(constructor: ^Constructor) {
 	delete(constructor.current_inputs)
 	delete(constructor.current_outputs)
-	// delete(constructor.recipe.input_map)
-	// delete(constructor.recipe.output_map)
 }
 
 transform_constructor_item :: proc(constructor: ^Constructor) {
@@ -253,6 +268,26 @@ transform_constructor_item :: proc(constructor: ^Constructor) {
 	if check_item_input_to_recipe(constructor.current_inputs, recipe) {
 		remove_qty_from_input(&constructor.current_inputs, recipe)
 		add_qty_to_output(constructor, recipe)
+	}
+}
+
+// Will move items out of machine into global storage
+set_constructor_recipe :: proc(constructor: ^Constructor, recipe_type: RecipeType) {
+	for key in constructor.current_inputs {
+		g.item_pickup[key] += constructor.current_inputs[key]
+	}
+	for key in constructor.current_outputs {
+		g.item_pickup[key] += constructor.current_outputs[key]
+	}
+	clear(&constructor.current_inputs)
+	clear(&constructor.current_outputs)
+	constructor.recipe_type = recipe_type
+	recipe := get_recipe_from_memory(recipe_type)
+	for key in recipe.input_map {
+		constructor.current_inputs[key] = 0
+	}
+	for key in recipe.output_map {
+		constructor.current_outputs[key] = 0
 	}
 }
 
@@ -434,7 +469,6 @@ handle_editor_update :: proc() {
 		for i in 0 ..< len(g.travelPoints) {
 			travelPoint := g.travelPoints[i]
 			rCollision := handle_collisions_three_dee(travelPoint, i)
-			fmt.println(g.selected.id)
 			g.travelPoints[i].selected = rCollision.hit
 		}
 
@@ -659,31 +693,12 @@ update :: proc() {
 
 ////////////////////////////// DRAW ////////////////////////////////
 
-draw_debug_info :: proc() {
-	text_spacing: int = 5
-	rl.DrawText(
-		fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
-		5,
-		auto_cast text_spacing,
-		8.,
-		rl.BLACK,
-	)
-	text_spacing += 11
-	rl.DrawText(
-		fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
-		5,
-		auto_cast text_spacing,
-		8.,
-		rl.BLACK,
-	)
-	text_spacing += 11
-	rl.DrawText(
-		fmt.ctprintf("Player Mode %v\n", g.player_mode),
-		5,
-		auto_cast text_spacing,
-		8.,
-		rl.BLACK,
-	)
+draw_debug_info :: proc(debug_info: []cstring) {
+	text_spacing: int = PIXEL_WINDOW_HEIGHT - 15
+	for info in debug_info {
+		rl.DrawText(info, 5, auto_cast text_spacing, 8., rl.BLACK)
+		text_spacing -= 11
+	}
 }
 
 draw_placing_object :: proc() {
@@ -785,7 +800,21 @@ draw :: proc() {
 	rl.EndMode3D()
 
 	rl.BeginMode2D(ui_camera())
-	draw_debug_info()
+	travel_point_info: FactoryEntity
+	for i in 0 ..< len(g.travelPoints) {
+		if (g.travelPoints[i].selected) {
+			travel_point_info = g.travelPoints[i]
+		}
+	}
+	debug_info := []cstring {
+		fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
+		fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
+		fmt.ctprintf("Player Mode %v\n", g.player_mode),
+		fmt.ctprintf("selected info %v\n", travel_point_info.current_outputs),
+		fmt.ctprintf("selected info %v\n", travel_point_info.current_inputs),
+		fmt.ctprintf("selected info %v\n", travel_point_info.recipe_type),
+	}
+	draw_debug_info(debug_info)
 	rl.EndMode2D()
 
 	if g.player_mode == .Editing {
@@ -902,6 +931,7 @@ game_init :: proc() {
 	recipes := AllRecipes {
 		grass_recipe    = get_recipe(.Grass),
 		concrete_recipe = get_recipe(.Concrete),
+		gnome_recipe    = get_recipe(.Gnome),
 	}
 
 	g^ = Game_Memory {
@@ -979,6 +1009,8 @@ game_shutdown :: proc() {
 	}
 	clean_up_recipe(g.all_recipes.grass_recipe)
 	clean_up_recipe(g.all_recipes.concrete_recipe)
+	clean_up_recipe(g.all_recipes.gnome_recipe)
+	delete(g.item_pickup)
 	delete(g.cubes)
 	delete(g.travelPoints)
 	delete(g.travel)

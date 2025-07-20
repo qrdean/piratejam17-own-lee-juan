@@ -22,6 +22,8 @@ ButtonActions :: union {
 	Spawn_Traveler,
 	Select_Target,
 	Output_View,
+	Recipe_View,
+	Recipe_Select,
 }
 
 Place_Object :: struct {
@@ -39,6 +41,12 @@ Select_Target :: struct {
 }
 Output_View :: struct {
 	building_id: int,
+}
+Recipe_View :: struct {
+	building_id: int,
+}
+Recipe_Select :: struct {
+	recipe_type: RecipeType,
 }
 
 Gui_Buttons_Rectangles: [9]rl.Rectangle = {
@@ -68,6 +76,20 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	}
 }
 
+get_recipe_list :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Grass", Recipe_Select{recipe_type = .Grass}},
+		{"Concrete", Recipe_Select{recipe_type = .Concrete}},
+		{"Gnome", Recipe_Select{recipe_type = .Gnome}},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	}
+}
+
 get_selected_entity_action_events_cube :: proc(
 	building_id: int,
 	modelType: ModelType,
@@ -76,7 +98,7 @@ get_selected_entity_action_events_cube :: proc(
 	return Selected_Entity_Action_Events {
 		{"Add", Spawn_Traveler{building_id = building_id, model = modelType, position = position}},
 		{"Output", Output_View{building_id = building_id}},
-		{},
+		{"Recipe", Recipe_View{building_id = building_id}},
 		{},
 		{},
 		{},
@@ -156,6 +178,18 @@ handle_button :: proc() {
 			g.current_output_info.building_id = d.building_id
 			g.current_output_info.open = true
 			g.player_mode = .Editing
+		case Recipe_View:
+			g.current_recipe_info.open = true
+			g.current_recipe_info.building_id = d.building_id
+		case Recipe_Select:
+			g.current_recipe_info.recipe_type = d.recipe_type
+			for i in 0 ..< len(g.travelPoints) {
+				if g.current_recipe_info.building_id == i {
+					set_constructor_recipe(&g.travelPoints[i], d.recipe_type)
+					break
+				}
+			}
+			g.current_recipe_info.open = false
 		case:
 			fmt.println("unhandled?")
 		}
@@ -190,6 +224,22 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 		rl.GuiEnable()
 		selected_buttons := get_selected_entity_actions_events_output()
 		for i in 0 ..< len(get_selected_entity_actions_events_output()) {
+			gui_button_rectangle := Gui_Buttons_Rectangles[i]
+			gui_button_rectangle.y = gui_button_rectangle.y + (146)
+			if rl.GuiButton(
+				gui_button_rectangle,
+				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
+			) {
+				g.button_event = selected_buttons[i]
+			}
+		}
+	}
+
+	if g.current_recipe_info.open {
+		rl.GuiPanel(rl.Rectangle{20, 148, 210, 128}, fmt.ctprintf("Recipes"))
+		rl.GuiEnable()
+		selected_buttons := get_recipe_list()
+		for i in 0 ..< len(selected_buttons) {
 			gui_button_rectangle := Gui_Buttons_Rectangles[i]
 			gui_button_rectangle.y = gui_button_rectangle.y + (146)
 			if rl.GuiButton(
