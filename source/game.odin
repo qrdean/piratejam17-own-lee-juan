@@ -108,11 +108,13 @@ AllRecipes :: struct {
 }
 
 ThreeDeeEntity :: struct {
-	bb:       rl.BoundingBox,
-	selected: bool,
-	position: rl.Vector3,
-	type:     ModelType,
-	color:    rl.Color,
+	bb:              rl.BoundingBox,
+	selected:        bool,
+	position:        rl.Vector3,
+	type:            ModelType,
+	color:           rl.Color,
+	original_color:  rl.Color,
+	highlight_color: rl.Color,
 }
 
 FactoryEntity :: struct {
@@ -480,14 +482,18 @@ handle_placing_mode :: proc() {
 			}
 		case .Rectangle:
 			entity := FactoryEntity {
-				position = rl.Vector3 {
+				position        = rl.Vector3 {
 					g.current_collision_info.point.x,
 					1.0, //TODO: calculate this based on model height
 					g.current_collision_info.point.z,
 				},
-				type     = g.current_placing_info.modelType,
-				color    = rl.YELLOW,
-				bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+				type            = g.current_placing_info.modelType,
+				color           = rl.ORANGE,
+				original_color  = rl.ORANGE,
+				highlight_color = rl.GREEN,
+				bb              = rl.GetModelBoundingBox(
+					get_model(g.current_placing_info.modelType),
+				),
 			}
 			append(&g.travelPoints, entity)
 		}
@@ -509,23 +515,6 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		)
 		travel_entity.position = next_pos
 	} else {
-
-		// if g.travelPoints[travel_entity.current_target_id].input_type ==
-		//    travel_entity.current_cargo.ItemType {
-		// 	travel_entity.current_cargo.ItemType = .None
-		// 	g.travelPoints[travel_entity.current_target_id].input_count += 1
-		// }
-		//
-		// if g.travelPoints[travel_entity.current_target_id].output_type != .None &&
-		//    g.travelPoints[travel_entity.current_target_id].output_count > 0 &&
-		//    travel_entity.current_cargo.ItemType == .None {
-		// 	g.travelPoints[travel_entity.current_target_id].output_count -= 1
-		// 	travel_entity.current_cargo.position_offset = rl.Vector3(0.5)
-		// 	travel_entity.current_cargo.color = rl.WHITE
-		// 	travel_entity.current_cargo.ItemType =
-		// 		g.travelPoints[travel_entity.current_target_id].output_type
-		// }
-
 		workers :=
 			g.travelPoints[travel_entity.building_id].output_workers[travel_entity.worker_id]
 		if travel_entity.current_target_id == workers.destination_id {
@@ -538,22 +527,18 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 				1
 				travel_entity.current_cargo.ItemType = .None
 			}
-
+			// Next target
 			travel_entity.current_target_id = workers.origin_id
 		} else {
 			// Handle pick up
 			factory := g.travelPoints[travel_entity.current_target_id]
-			// recipe := get_recipe_from_memory(factory.recipe_type)
 			for key in factory.current_outputs {
-				fmt.println(factory.current_outputs)
 				if g.travelPoints[travel_entity.current_target_id].current_outputs[key] > 0 {
 					g.travelPoints[travel_entity.current_target_id].current_outputs[key] -= 1
 					travel_entity.current_cargo.ItemType = key
 				}
 			}
-			fmt.println(travel_entity.current_cargo.ItemType)
-
-
+			// Next target
 			travel_entity.current_target_id = workers.destination_id
 		}
 	}
@@ -561,30 +546,51 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 
 handle_selecting_update :: proc() {
 	g.current_output_info.collision_info = false
+	g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
 	for i in 0 ..< len(g.travelPoints) {
 		if i == int(g.current_output_info.building_id) {
 			continue
 		}
-		bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
-		if rl.CheckCollisionBoxes(
-			bb,
-			bounding_box_and_transform(
-				rl.GetModelBoundingBox(get_model(.Point)),
-				g.current_collision_info.point,
-			),
-		) {
+		// bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
+		// if rl.CheckCollisionBoxes(
+		// 	bb,
+		// 	bounding_box_and_transform(
+		// 		rl.GetModelBoundingBox(get_model(.Point)),
+		// 		g.current_collision_info.point,
+		// 	),
+		// ) {
+		// 	g.current_output_info.collision_info = true
+		// 	g.current_output_info.destination_building_id = i
+		// }
+		travelPoint := g.travelPoints[i]
+		rCollision := handle_collisions_three_dee(travelPoint, i)
+		if rCollision.hit {
 			g.current_output_info.collision_info = true
 			g.current_output_info.destination_building_id = i
 		}
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
-		if g.current_output_info.collision_info {
-			g.travelPoints[int(g.current_output_info.building_id)].output_workers[g.current_output_info.output_id].destination_id =
-				g.current_output_info.destination_building_id
-			g.player_mode = .Editing
-			g.current_output_info.open = false
+		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
+		for i in 0 ..< len(g.travelPoints) {
+			travelPoint := g.travelPoints[i]
+			rCollision := handle_collisions_three_dee(travelPoint, i)
+			if rCollision.hit {
+				g.player_mode = .Viewing
+				g.current_output_info.open = false
+				rl.DisableCursor()
+				g.travelPoints[i].color = g.travelPoints[i].original_color
+				g.travelPoints[g.current_output_info.building_id].output_workers[g.current_output_info.output_id].destination_id =
+					i
+			}
 		}
+
+		// if g.current_output_info.collision_info {
+		// 	g.travelPoints[int(g.current_output_info.building_id)].output_workers[g.current_output_info.output_id].destination_id =
+		// 		g.current_output_info.destination_building_id
+		// 	g.player_mode = .Viewing
+		// 	g.current_output_info.open = false
+		// }
 	}
 }
 
@@ -678,22 +684,6 @@ draw_debug_info :: proc() {
 		8.,
 		rl.BLACK,
 	)
-	text_spacing += 11
-	rl.DrawText(
-		fmt.ctprintf("Box Distance_to_1 %v\n", g.debug_info.distance_info_1),
-		5,
-		auto_cast text_spacing,
-		8.,
-		rl.BLACK,
-	)
-	text_spacing += 11
-	rl.DrawText(
-		fmt.ctprintf("is distance close%v\n", g.debug_info.is_distance_close),
-		5,
-		auto_cast text_spacing,
-		8.,
-		rl.BLACK,
-	)
 }
 
 draw_placing_object :: proc() {
@@ -710,6 +700,13 @@ draw_selecting_point :: proc() {
 	color := rl.RED
 	if g.current_output_info.collision_info {
 		color = rl.GREEN
+	}
+	for i in 0 ..< len(g.travelPoints) {
+		if g.current_output_info.destination_building_id == i {
+			g.travelPoints[i].color = g.travelPoints[i].highlight_color
+		} else {
+			g.travelPoints[i].color = g.travelPoints[i].original_color
+		}
 	}
 	rl.DrawModel(get_model(.Point), current_collision_point, 1., color)
 }
@@ -920,11 +917,13 @@ game_init :: proc() {
 	for i in 0 ..< 3 {
 		if (i % 2 == 0) {
 			wareHouseEntity := FactoryEntity {
-				position    = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
-				type        = ModelType.Rectangle,
-				color       = rl.ORANGE,
-				bb          = rectBB,
-				recipe_type = .Grass,
+				position        = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
+				type            = ModelType.Rectangle,
+				color           = rl.ORANGE,
+				original_color  = rl.ORANGE,
+				highlight_color = rl.GREEN,
+				bb              = rectBB,
+				recipe_type     = .Grass,
 			}
 
 			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
@@ -936,11 +935,13 @@ game_init :: proc() {
 			append(&g.travelPoints, wareHouseEntity)
 		} else {
 			wareHouseEntity := FactoryEntity {
-				position    = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
-				type        = ModelType.Rectangle,
-				color       = rl.ORANGE,
-				bb          = rectBB,
-				recipe_type = .Grass,
+				position        = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
+				type            = ModelType.Rectangle,
+				color           = rl.ORANGE,
+				original_color  = rl.ORANGE,
+				highlight_color = rl.GREEN,
+				bb              = rectBB,
+				recipe_type     = .Grass,
 			}
 
 			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
