@@ -3,7 +3,6 @@ package game
 import "core:fmt"
 import rl "vendor:raylib"
 
-Selected_Entity_Actions :: [9]string
 Selected_Entity_Action_Events :: [9]Event
 
 Extra_UI_State :: enum {
@@ -75,9 +74,9 @@ Gui_Buttons_Rectangles: [9]rl.Rectangle = {
 get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
 		{"Rect", Place_Object{model = ModelType.Rectangle}},
-		{},
-		{},
-		{},
+		{"Construct", Place_Object{model = ModelType.Construct}},
+		{"Assemble", Place_Object{model = ModelType.Assemble}},
+		{"Manufacturer", Place_Object{model = ModelType.Manufacturer}},
 		{},
 		{},
 		{},
@@ -88,11 +87,39 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 
 get_recipe_list :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
-		{"Grass", Recipe_Select{recipe_type = .Grass}},
-		{"Concrete", Recipe_Select{recipe_type = .Concrete}},
-		{"Gnome", Recipe_Select{recipe_type = .Gnome}},
+		{"Opened", Recipe_Select{recipe_type = .CanOpened}},
+		{"Flat", Recipe_Select{recipe_type = .CanFlat}},
+		{"Strips", Recipe_Select{recipe_type = .CanStrips}},
+		{"Nails", Recipe_Select{recipe_type = .CanNails}},
+		{"Rings", Recipe_Select{recipe_type = .CanRing}},
 		{},
 		{},
+		{},
+		{},
+	}
+}
+
+get_recipe_list_assembly :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Reinforce", Recipe_Select{recipe_type = .CanReinforced}},
+		{"Rotator", Recipe_Select{recipe_type = .CanRotator}},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
+	}
+}
+
+get_recipe_list_final :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Motor", Recipe_Select{recipe_type = .CanMotor}},
+		{"Propellor", Recipe_Select{recipe_type = .CanPropeller}},
+		{"Helm", Recipe_Select{recipe_type = .CanHelm}},
+		{"Rutter", Recipe_Select{recipe_type = .CanRutter}},
+		{"Hull", Recipe_Select{recipe_type = .CanHull}},
 		{},
 		{},
 		{},
@@ -172,7 +199,6 @@ handle_button :: proc() -> bool {
 			// change this handle a set of keys in a map?
 			highlight_all_travelers_by_id(d.building_id)
 		case Recipe_View:
-			// g.current_recipe_info.open = true
 			g.current_extra_ui_state = .Recipe
 			g.current_recipe_info.building_id = d.building_id
 			unhighlight_all_travelers()
@@ -250,7 +276,18 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 	case .Output:
 		draw_extra_ui_layer("Outputs", get_selected_entity_actions_events_output())
 	case .Recipe:
-		draw_extra_ui_layer("Recipes", get_recipe_list())
+		#partial switch selected.type {
+		case .Miner:
+			draw_extra_ui_layer("Recipes", get_recipe_list())
+		case .Construct:
+			draw_extra_ui_layer("Recipes", get_recipe_list())
+		case .Assemble:
+			draw_extra_ui_layer("Recipes", get_recipe_list_assembly())
+		case .Manufacturer:
+			draw_extra_ui_layer("Recipes", get_recipe_list_final())
+		case:
+			draw_extra_ui_layer("Recipes", get_recipe_list())
+		}
 	}
 
 	for i in 0 ..< len(selected.selected_entity_actions) {

@@ -15,11 +15,11 @@ get_goal :: proc(goal_type: GoalType) -> Goal {
 	switch goal_type {
 	case .TierOne:
 		input_map := make(map[ItemType]i32)
-		input_map[.Concrete] = 50
+		input_map[.CanFlat] = 50
 		return {input_map = input_map, reward_text = "youcomplete tier. unlock blahblahblah"}
 	case .TierTwo:
 		input_map := make(map[ItemType]i32)
-		input_map[.Concrete] = 250
+		input_map[.CanStrips] = 50
 		return {input_map = input_map, reward_text = "youcomplete tier. unlock blahblahblah"}
 	}
 	return {}

@@ -6,11 +6,10 @@
 Only One
 
 ### Potential Names
+Cat-Is-Factory
 
 #### Ideas
-numba 1
 - Only have one type of resource to work with. You are trying to make that resource into a bunch of things. So kinda like an automation kinda thing
-    - Want to produce only one product. But have a limited amount of resources of different types.
 
 ### Inspirations
 My smelly cat
@@ -77,27 +76,72 @@ output: empty catfood cans + food
 Constructor can be made out of normal cat food cans
 
 Recipes
+flattened
+input: opened catfood 3
+output: 2 flattened
+time: 3 sec
+
+straightened
+input: flattened 1
+output: straight strips 1
+2 sec
+
+nails: 
+input: straightened strips 1
+output: nails 4
+3 sec
+
+rings:
+input: opened catfood 1
+output: ring 1
+3 sec
+
+reinforced catfood:
+input: nails 12
+input: flattened 6
+output: reinforced catfood 1
+6 sec
+
+catfood rotator:
+input: nails 25
+input: straightened 5
+output: rotator 1
+8 sec
+
 motor 
-input: catfood cans + catfood can strips + nails
+input: 
+rotator 1
+reinforced 2
 output: 1 motor
 
 propeller
-input: catfood can flattened + 4 straightened strips
+input: 
+reinforced: 3
+rotator 2
 output: propeller
 
 Hull: 
-input: catfood cans flattened + straightened strips + nails
+input: 
+reinforced catfood 50
+nails 250
+
 output: hull
 
 Wheel:
-input: catfood cans + rings + lid
+input: 
+reinforced 5
+rings 120
+rotator 1
 
 Rutter:
+reinforced 20
+rotator 2
+rings 10
 
 Goal is to create a boat
 Boat has:
-Motor - cat + Wheel (cat food cans in a wheel configuration)
-Propeller - cat food cans in a prop shape
-Hull - Boat hull made out of straightened cat food cans
-Wheel - made out of cat food cans 
-Rutter - Straightened cat food can material
+Motors - 5 - cat + Wheel (cat food cans in a wheel configuration)
+Propeller - 2 - cat food cans in a prop shape
+Hull - 1 - Boat hull made out of straightened cat food cans
+Wheel - 1 - made out of cat food cans 
+Rutter - 2 - Straightened cat food can material

@@ -116,9 +116,19 @@ AllResources :: struct {
 }
 
 AllRecipes :: struct {
-	concrete_recipe: Recipe,
-	grass_recipe:    Recipe,
-	gnome_recipe:    Recipe,
+	can_opened:     Recipe,
+	can_flat:       Recipe,
+	can_strip:      Recipe,
+	can_nails:      Recipe,
+	can_ring:       Recipe,
+	can_reinforced: Recipe,
+	can_rotator:    Recipe,
+	can_motor:      Recipe,
+	can_propeller:  Recipe,
+	can_hull:       Recipe,
+	can_helm:       Recipe,
+	can_rutter:     Recipe,
+	can_boat:       Recipe,
 }
 
 AllGoals :: struct {
@@ -187,7 +197,9 @@ ModelType :: enum {
 	Rectangle,
 	Point,
 	Boat,
-	Factory,
+	Construct,
+	Assemble,
+	Manufacturer,
 	Miner,
 	Cat,
 }
@@ -204,10 +216,14 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.boatModel
 	case .Point:
 		return g.allResources.pointModel
-	case .Factory:
+	case .Construct:
 		return g.allResources.rectangleModel
 	case .Miner:
 		return g.allResources.cubeModel
+	case .Assemble:
+		return g.allResources.rectangleModel
+	case .Manufacturer:
+		return g.allResources.rectangleModel
 	case .Cat:
 		return g.allResources.cubeModel
 	}
@@ -216,9 +232,9 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 
 get_model_from_item :: proc(item_type: ItemType) -> rl.Model {
 	#partial switch item_type {
-	case .Gnome:
+	case .CanOpened:
 		return g.allResources.cubeModel
-	case .Grass:
+	case .CanFlat:
 		return g.allResources.cubeModel
 	}
 	return g.allResources.cubeModel
@@ -236,8 +252,12 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Boat"
 	case .Point:
 		return "Point"
-	case .Factory:
-		return "Factory"
+	case .Construct:
+		return "Construct"
+	case .Assemble:
+		return "Assembler"
+	case .Manufacturer:
+		return "Manufacturer"
 	case .Miner:
 		return "Miner"
 	case .Cat:
@@ -291,7 +311,7 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 		position = position,
 		bb = rl.GetModelBoundingBox(get_model(model_type)),
 		color = rl.BLUE,
-		current_cargo = Item{ItemType = .Gnome},
+		current_cargo = Item{ItemType = .None},
 		current_target_id = worker.destination_id,
 		building_id = building_id,
 		worker_id = worker_count,
@@ -387,20 +407,6 @@ handle_editor_update :: proc() {
 
 handle_placing_mode :: proc() {
 	g.current_placing_info.collision_info = false
-	// for i in 0 ..< len(g.travelPoints) {
-	// 	if !g.travelPoints[i].active {continue}
-	// 	bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
-	// 	if rl.CheckCollisionBoxes(
-	// 		bb,
-	// 		bounding_box_and_transform(
-	// 			rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
-	// 			g.current_collision_info.point,
-	// 		),
-	// 	) {
-	// 		g.current_placing_info.collision_info = true
-	// 	}
-	// }
-
 	if rl.CheckCollisionBoxes(
 		rl.GetModelBoundingBox(g.allResources.terrainModel),
 		bounding_box_and_transform(
@@ -431,6 +437,60 @@ handle_placing_mode :: proc() {
 				recipe_type     = .None,
 			}
 			append(&g.travelPoints, entity)
+		case .Construct:
+			entity := FactoryEntity {
+				position        = rl.Vector3 {
+					g.current_collision_info.point.x,
+					1.0, //TODO: calculate this based on model height
+					g.current_collision_info.point.z,
+				},
+				type            = g.current_placing_info.modelType,
+				color           = rl.LIME,
+				original_color  = rl.LIME,
+				highlight_color = rl.GREEN,
+				bb              = rl.GetModelBoundingBox(
+					get_model(g.current_placing_info.modelType),
+				),
+				active          = true,
+				recipe_type     = .None,
+			}
+			append(&g.travelPoints, entity)
+		case .Assemble:
+			entity := FactoryEntity {
+				position        = rl.Vector3 {
+					g.current_collision_info.point.x,
+					1.0, //TODO: calculate this based on model height
+					g.current_collision_info.point.z,
+				},
+				type            = g.current_placing_info.modelType,
+				color           = rl.GOLD,
+				original_color  = rl.GOLD,
+				highlight_color = rl.GREEN,
+				bb              = rl.GetModelBoundingBox(
+					get_model(g.current_placing_info.modelType),
+				),
+				active          = true,
+				recipe_type     = .None,
+			}
+			append(&g.travelPoints, entity)
+		case .Manufacturer:
+			entity := FactoryEntity {
+				position        = rl.Vector3 {
+					g.current_collision_info.point.x,
+					1.0, //TODO: calculate this based on model height
+					g.current_collision_info.point.z,
+				},
+				type            = g.current_placing_info.modelType,
+				color           = rl.PURPLE,
+				original_color  = rl.PURPLE,
+				highlight_color = rl.GREEN,
+				bb              = rl.GetModelBoundingBox(
+					get_model(g.current_placing_info.modelType),
+				),
+				active          = true,
+				recipe_type     = .None,
+			}
+			append(&g.travelPoints, entity)
 		}
 		g.player_mode = .Editing
 	}
@@ -452,7 +512,7 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		next_pos := rl.Vector3MoveTowards(
 			travel_entity.position,
 			g.travelPoints[travel_entity.current_target_id].position,
-			0.11,
+			0.21,
 		)
 		travel_entity.position = next_pos
 	} else {
@@ -714,7 +774,7 @@ draw :: proc() {
 	for i in 0 ..< len(g.travelPoints) {
 		if !g.travelPoints[i].active {continue}
 		draw_three_dee_entity(g.travelPoints[i])
-		if g.selected.type == .Rectangle {
+		if g.selected.type != .None {
 			if g.player_mode == .Editing && g.selected.id == i {
 				draw_editing_layer(g.travelPoints[i])
 			}
@@ -741,7 +801,7 @@ draw :: proc() {
 
 	rl.BeginMode2D(ui_camera())
 	travel_point_info: FactoryEntity
-	if g.selected.type == .Rectangle {
+	if in_model_list(g.selected.type) {
 		travel_point_info = g.travelPoints[g.selected.id]
 	}
 
@@ -752,7 +812,10 @@ draw :: proc() {
 		fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_outputs)),
 		fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_inputs)),
 		fmt.ctprintf("selected info %v\n", travel_point_info.recipe_type),
-		fmt.ctprintf("current goal %v\n", get_item_map_text(get_goal_from_memory(g.turn_in_point.goal_type).input_map)),
+		fmt.ctprintf(
+			"current goal %v\n",
+			get_item_map_text(get_goal_from_memory(g.turn_in_point.goal_type).input_map),
+		),
 	}
 	draw_debug_info(debug_info)
 	rl.EndMode2D()
@@ -764,6 +827,16 @@ draw :: proc() {
 
 
 	rl.EndDrawing()
+}
+
+in_model_list :: proc(model_type: ModelType) -> bool {
+	types := [4]ModelType{.Rectangle, .Construct, .Assemble, .Manufacturer}
+	for i in types {
+		if i == model_type {
+			return true
+		}
+	}
+	return false
 }
 
 ////////////////////////////// EXPORTS ////////////////////////////////
@@ -868,9 +941,19 @@ game_init :: proc() {
 	}
 
 	recipes := AllRecipes {
-		grass_recipe    = get_recipe(.Grass),
-		concrete_recipe = get_recipe(.Concrete),
-		gnome_recipe    = get_recipe(.Gnome),
+		can_opened     = get_recipe(.CanOpened),
+		can_flat       = get_recipe(.CanFlat),
+		can_strip      = get_recipe(.CanStrips),
+		can_nails      = get_recipe(.CanNails),
+		can_ring       = get_recipe(.CanRing),
+		can_reinforced = get_recipe(.CanReinforced),
+		can_rotator    = get_recipe(.CanRotator),
+		can_motor      = get_recipe(.CanMotor),
+		can_propeller  = get_recipe(.CanPropeller),
+		can_hull       = get_recipe(.CanHull),
+		can_helm       = get_recipe(.CanHelm),
+		can_rutter     = get_recipe(.CanRutter),
+		can_boat       = get_recipe(.Boat),
 	}
 
 	goals := AllGoals {
@@ -898,7 +981,7 @@ game_init :: proc() {
 				original_color  = rl.ORANGE,
 				highlight_color = rl.GREEN,
 				bb              = rectBB,
-				recipe_type     = .Grass,
+				recipe_type     = .None,
 				active          = true,
 			}
 
@@ -917,7 +1000,7 @@ game_init :: proc() {
 				original_color  = rl.ORANGE,
 				highlight_color = rl.GREEN,
 				bb              = rectBB,
-				recipe_type     = .Grass,
+				recipe_type     = .None,
 				active          = true,
 			}
 
@@ -954,9 +1037,19 @@ game_shutdown :: proc() {
 	for &i in g.travelPoints {
 		clean_up_constructor(&i)
 	}
-	clean_up_recipe(g.all_recipes.grass_recipe)
-	clean_up_recipe(g.all_recipes.concrete_recipe)
-	clean_up_recipe(g.all_recipes.gnome_recipe)
+	clean_up_recipe(g.all_recipes.can_opened)
+	clean_up_recipe(g.all_recipes.can_flat)
+	clean_up_recipe(g.all_recipes.can_strip)
+	clean_up_recipe(g.all_recipes.can_nails)
+	clean_up_recipe(g.all_recipes.can_ring)
+	clean_up_recipe(g.all_recipes.can_reinforced)
+	clean_up_recipe(g.all_recipes.can_rotator)
+	clean_up_recipe(g.all_recipes.can_motor)
+	clean_up_recipe(g.all_recipes.can_propeller)
+	clean_up_recipe(g.all_recipes.can_hull)
+	clean_up_recipe(g.all_recipes.can_helm)
+	clean_up_recipe(g.all_recipes.can_rutter)
+	clean_up_recipe(g.all_recipes.can_boat)
 	delete(g.all_goals.tier_one.input_map)
 	delete(g.all_goals.tier_two.input_map)
 	delete(g.item_pickup)
