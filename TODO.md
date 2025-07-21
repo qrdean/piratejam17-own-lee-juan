@@ -30,9 +30,6 @@ Upgrade system
 Add a storage box 'workers' can pull from
 
 Bugs
-Fix spacing on extra UI
-Need to update 'extra' UI selection to an enum instead of bools
-Need to turn reset context UI selection when I click somewhere else
 
 ### Worker instructions
 Workers can have instructions. 

@@ -40,18 +40,17 @@ shader_version_folder := "version330"
 
 waterHeightY: f32 = 1.
 Game_Memory :: struct {
-	player_pos:             rl.Vector2,
-	player_texture:         rl.Texture,
 	some_number:            int,
 	run:                    bool,
 	camera:                 rl.Camera,
-	// cubes:                  [dynamic]ThreeDeeEntity,
 	travelPoints:           [dynamic]FactoryEntity,
 	travel:                 [dynamic]TravelEntity,
+	turn_in_point:          TurnInPoint,
 	currentRay:             rl.Ray,
 	mouseRay:               rl.Ray,
 	allResources:           AllResources,
 	all_recipes:            AllRecipes,
+	all_goals:              AllGoals,
 	waterPos:               rl.Vector3,
 	button_event:           Event,
 	player_mode:            PlayerMode,
@@ -61,18 +60,12 @@ Game_Memory :: struct {
 	current_output_info:    Output_Info,
 	current_recipe_info:    RecipeInfo,
 	current_extra_ui_state: Extra_UI_State,
-	entity_id_counter:      u64,
 	item_pickup:            map[ItemType]i32,
 	debug_info:             DebugInfo,
 }
 
 g: ^Game_Memory
 
-Extra_UI_State :: enum {
-	None,
-	Output,
-	Recipe,
-}
 DebugInfo :: struct {
 	distance_info_1:   f32,
 	is_distance_close: bool,
@@ -128,6 +121,11 @@ AllRecipes :: struct {
 	gnome_recipe:    Recipe,
 }
 
+AllGoals :: struct {
+	tier_one: Goal,
+	tier_two: Goal,
+}
+
 ThreeDeeEntity :: struct {
 	bb:              rl.BoundingBox,
 	selected:        bool,
@@ -169,212 +167,11 @@ TravelEntity :: struct {
 	current_cargo:        Item,
 	current_target_id:    int,
 	action:               TravelEntityAction,
-	// Add an array of path targets for pathfinding
 }
 
-ItemType :: enum {
-	None,
-	Gnome,
-	Grass,
-	Concrete,
-}
-
-Item :: struct {
-	position_offset: rl.Vector3,
-	ItemType:        ItemType,
-	color:           rl.Color,
-}
-
-RecipeType :: enum {
-	None,
-	Grass,
-	Concrete,
-	Gnome,
-}
-
-Recipe :: struct {
-	input_map:      map[ItemType]i32,
-	output_map:     map[ItemType]i32,
-	construct_time: f32,
-}
-
-get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
-	switch recipe_type {
-	case .None:
-		return {}
-	case .Grass:
-		a := make(map[ItemType]i32)
-		a[.Gnome] = 1
-		b := make(map[ItemType]i32)
-		b[.Grass] = 1
-		construct_time := number_per_minute_to_frame_time(20.)
-		return {input_map = a, output_map = b, construct_time = construct_time}
-	case .Concrete:
-		a := make(map[ItemType]i32)
-		a[.Gnome] = 1
-		a[.Grass] = 1
-		b := make(map[ItemType]i32)
-		b[.Concrete] = 1
-		construct_time := number_per_minute_to_frame_time(2.)
-		return {input_map = a, output_map = b, construct_time = construct_time}
-	case .Gnome:
-		a := make(map[ItemType]i32)
-		b := make(map[ItemType]i32)
-		a[.None] = 0
-		b[.Gnome] = 1
-		construct_time := number_per_minute_to_frame_time(60.)
-		return {input_map = a, output_map = b, construct_time = construct_time}
-	}
-	return {}
-}
-
-get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
-	switch recipe_type {
-	case .None:
-		return {}
-	case .Grass:
-		return g.all_recipes.grass_recipe
-	case .Concrete:
-		return g.all_recipes.concrete_recipe
-	case .Gnome:
-		return g.all_recipes.gnome_recipe
-	}
-	return {}
-}
-
-overwrite_recipe_time :: proc(recipe: ^Recipe, new_per_minute: f32) {
-	recipe.construct_time = number_per_minute_to_frame_time(new_per_minute)
-}
-
-clean_up_recipe :: proc(recipe: Recipe) {
-	delete(recipe.input_map)
-	delete(recipe.output_map)
-}
-
-check_type_for_recipe :: proc(item_type: ItemType, recipe: Recipe) -> bool {
-	for key in recipe.input_map {
-		if key == item_type {
-			return true
-		}
-	}
-	return false
-}
-
-check_item_input_to_recipe :: proc(item_map: map[ItemType]i32, recipe: Recipe) -> bool {
-	for key in item_map {
-		if recipe.input_map[key] > item_map[key] {
-			return false
-		}
-	}
-	return true
-}
-
-remove_qty_from_input :: proc(item_map: ^map[ItemType]i32, recipe: Recipe) {
-	for key in item_map {
-		item_map[key] = item_map[key] - recipe.input_map[key]
-		if item_map[key] < 0 {
-			item_map[key] = 0
-		}
-	}
-}
-
-add_qty_to_output :: proc(constructor: ^Constructor, recipe: Recipe) {
-	for key in recipe.output_map {
-		constructor.current_outputs[key] += recipe.output_map[key]
-	}
-}
-
-Constructor :: struct {
-	recipe_type:            RecipeType,
-	current_inputs:         map[ItemType]i32,
-	current_outputs:        map[ItemType]i32,
-	current_construct_time: f32,
-}
-
-clean_up_constructor :: proc(constructor: ^Constructor) {
-	delete(constructor.current_inputs)
-	delete(constructor.current_outputs)
-}
-
-check_construction_time :: proc(constructor: Constructor) -> bool {
-	return(
-		constructor.current_construct_time >
-		get_recipe_from_memory(constructor.recipe_type).construct_time \
-	)
-}
-
-handle_construction_time :: proc(constructor: ^Constructor, dt: f32) {
-	constructor.current_construct_time += dt
-}
-
-transform_constructor_item :: proc(constructor: ^Constructor) {
-	recipe := get_recipe_from_memory(constructor.recipe_type)
-	if check_item_input_to_recipe(constructor.current_inputs, recipe) {
-		remove_qty_from_input(&constructor.current_inputs, recipe)
-		add_qty_to_output(constructor, recipe)
-	}
-}
-
-// Will move items out of machine into global storage
-set_constructor_recipe :: proc(constructor: ^Constructor, recipe_type: RecipeType) {
-	for key in constructor.current_inputs {
-		g.item_pickup[key] += constructor.current_inputs[key]
-	}
-	for key in constructor.current_outputs {
-		g.item_pickup[key] += constructor.current_outputs[key]
-	}
-	clear(&constructor.current_inputs)
-	clear(&constructor.current_outputs)
-	constructor.recipe_type = recipe_type
-	recipe := get_recipe_from_memory(recipe_type)
-	for key in recipe.input_map {
-		constructor.current_inputs[key] = 0
-	}
-	for key in recipe.output_map {
-		constructor.current_outputs[key] = 0
-	}
-}
-
-delete_factory_from_world :: proc(building_id: int) {
-	if len(g.travelPoints) < building_id {
-		fmt.println("something went wrong with the building_id")
-		return
-	}
-	for key in g.travelPoints[building_id].current_inputs {
-		g.item_pickup[key] += g.travelPoints[building_id].current_inputs[key]
-	}
-	for key in g.travelPoints[building_id].current_outputs {
-		g.item_pickup[key] += g.travelPoints[building_id].current_outputs[key]
-	}
-
-	// Remove all associated travelers from this building and collect any carrying items
-	for i in 0 ..< len(g.travel) {
-		workers := g.travelPoints[g.travel[i].building_id].output_workers[g.travel[i].worker_id]
-		fmt.println(workers.destination_id)
-		fmt.println(building_id)
-		if (g.travel[i].building_id == building_id) {
-			if g.travel[i].current_cargo.ItemType != .None {
-				g.item_pickup[g.travel[i].current_cargo.ItemType] += 1
-			}
-			// unordered_remove(&g.travel, i)
-			g.travel[i].active = false
-		} else if (g.travel[i].current_target_id == building_id) {
-			if g.travel[i].current_cargo.ItemType != .None {
-				g.item_pickup[g.travel[i].current_cargo.ItemType] += 1
-			}
-			g.travel[i].active = false
-		} else if (workers.destination_id == building_id) {
-			g.travel[i].active = false
-		}
-	}
-	g.selected = {}
-	clean_up_constructor(&g.travelPoints[building_id])
-	g.travelPoints[building_id] = {}
-	for i in 0 ..< len(g.travel) {
-		if !g.travel[i].active {
-			g.travel[i] = {}
-		}
-	}
+TurnInPoint :: struct {
+	using ThreeDeeEntity: ThreeDeeEntity,
+	goal_type:            GoalType,
 }
 
 GroundQuad :: struct {
@@ -447,13 +244,6 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Cat"
 	}
 	return "undefined"
-}
-
-game_camera :: proc() -> rl.Camera2D {
-	w := f32(rl.GetScreenWidth())
-	h := f32(rl.GetScreenHeight())
-
-	return {zoom = h / PIXEL_WINDOW_HEIGHT, target = g.player_pos, offset = {w / 2, h / 2}}
 }
 
 three_dee_game_camera :: proc() -> rl.Camera3D {
@@ -569,11 +359,6 @@ handle_editor_update :: proc() {
 	if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
 		hit_anything := false
 		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
-		// for i in 0 ..< len(g.cubes) {
-		// 	cube := g.cubes[i]
-		// 	rCollision := handle_collisions_three_dee(cube, i)
-		// 	g.cubes[i].selected = rCollision.hit
-		// }
 
 		for i in 0 ..< len(g.travelPoints) {
 			if !g.travelPoints[i].active {continue}
@@ -587,12 +372,6 @@ handle_editor_update :: proc() {
 				hit_anything = true
 			}
 		}
-
-		// for i in 0 ..< len(g.travel) {
-		// 	traveler := g.travel[i]
-		// 	rCollision := handle_collisions_three_dee(traveler, i)
-		// 	g.travel[i].selected = rCollision.hit
-		// }
 	}
 
 	if rl.IsMouseButtonDown(.RIGHT) {
@@ -634,21 +413,6 @@ handle_placing_mode :: proc() {
 
 	if rl.IsMouseButtonPressed(.LEFT) {
 		#partial switch g.current_placing_info.modelType {
-		// case .Cube:
-		// 	if g.current_placing_info.collision_info {
-		// 		cubeEntity := ThreeDeeEntity {
-		// 			position = rl.Vector3 {
-		// 				g.current_collision_info.point.x,
-		// 				0.5,
-		// 				g.current_collision_info.point.z,
-		// 			},
-		// 			type     = g.current_placing_info.modelType,
-		// 			color    = rl.BROWN,
-		// 			bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
-		// 			active   = true,
-		// 		}
-		// 		append(&g.cubes, cubeEntity)
-		// 	}
 		case .Rectangle:
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
@@ -674,9 +438,6 @@ handle_placing_mode :: proc() {
 
 calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 	if len(g.travelPoints) < travel_entity.current_target_id {
-		fmt.println("out of bounds. Likely deleted")
-		fmt.println("...printing debug...")
-		fmt.println(travel_entity)
 		return
 	}
 
@@ -750,17 +511,7 @@ handle_selecting_update :: proc() {
 		if i == int(g.current_output_info.building_id) {
 			continue
 		}
-		// bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
-		// if rl.CheckCollisionBoxes(
-		// 	bb,
-		// 	bounding_box_and_transform(
-		// 		rl.GetModelBoundingBox(get_model(.Point)),
-		// 		g.current_collision_info.point,
-		// 	),
-		// ) {
-		// 	g.current_output_info.collision_info = true
-		// 	g.current_output_info.destination_building_id = i
-		// }
+
 		travelPoint := g.travelPoints[i]
 		rCollision := handle_collisions_three_dee(travelPoint)
 		if rCollision.hit {
@@ -783,13 +534,6 @@ handle_selecting_update :: proc() {
 					i
 			}
 		}
-
-		// if g.current_output_info.collision_info {
-		// 	g.travelPoints[int(g.current_output_info.building_id)].output_workers[g.current_output_info.output_id].destination_id =
-		// 		g.current_output_info.destination_building_id
-		// 	g.player_mode = .Viewing
-		// 	g.current_output_info.open = false
-		// }
 	}
 }
 
@@ -953,11 +697,12 @@ draw :: proc() {
 	rlgl.EnableDepthMask()
 	rlgl.EnableDepthTest()
 	rlgl.SetBlendMode(i32(rl.BlendMode.ALPHA))
-	// rl.DrawModel(g.allResources.terrainModel, rl.Vector3(0), 1., rl.YELLOW)
+	rl.DrawModel(g.allResources.terrainModel, rl.Vector3(0), 1., rl.YELLOW)
 	rl.DrawGrid(1000, 1.)
 	// rl.DrawModel(g.allResources.waterModel, g.waterPos, 1., rl.WHITE)
 	// rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
 	// rl.DrawModel(g.allResources.baseCubeModel, rl.Vector3{1., 4., 1.}, 1.0, rl.WHITE)
+
 	if g.player_mode == .Placing {
 		draw_placing_object()
 	}
@@ -965,15 +710,6 @@ draw :: proc() {
 	if g.player_mode == .Selecting {
 		draw_selecting_point()
 	}
-
-	// for i in 0 ..< len(g.cubes) {
-	// 	draw_three_dee_entity(g.cubes[i])
-	// 	if g.selected.type == .Cube {
-	// 		if g.player_mode == .Editing && g.selected.id == i {
-	// 			draw_editing_layer(g.cubes[i])
-	// 		}
-	// 	}
-	// }
 
 	for i in 0 ..< len(g.travelPoints) {
 		if !g.travelPoints[i].active {continue}
@@ -1013,9 +749,10 @@ draw :: proc() {
 		fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
 		fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
 		fmt.ctprintf("Player Mode %v\n", g.player_mode),
-		fmt.ctprintf("selected info %v\n", travel_point_info.current_outputs),
-		fmt.ctprintf("selected info %v\n", travel_point_info.current_inputs),
+		fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_outputs)),
+		fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_inputs)),
 		fmt.ctprintf("selected info %v\n", travel_point_info.recipe_type),
+		fmt.ctprintf("current goal %v\n", get_item_map_text(get_goal_from_memory(g.turn_in_point.goal_type).input_map)),
 	}
 	draw_debug_info(debug_info)
 	rl.EndMode2D()
@@ -1028,7 +765,6 @@ draw :: proc() {
 
 	rl.EndDrawing()
 }
-
 
 ////////////////////////////// EXPORTS ////////////////////////////////
 
@@ -1137,12 +873,18 @@ game_init :: proc() {
 		gnome_recipe    = get_recipe(.Gnome),
 	}
 
+	goals := AllGoals {
+		tier_one = get_goal(.TierOne),
+		tier_two = get_goal(.TierTwo),
+	}
+
 	g^ = Game_Memory {
 		run          = true,
 		some_number  = 100,
 		camera       = get_new_camera(),
 		allResources = resources,
 		all_recipes  = recipes,
+		all_goals    = goals,
 		player_mode  = PlayerMode.Viewing,
 		debug_info   = DebugInfo{},
 	}
@@ -1215,8 +957,9 @@ game_shutdown :: proc() {
 	clean_up_recipe(g.all_recipes.grass_recipe)
 	clean_up_recipe(g.all_recipes.concrete_recipe)
 	clean_up_recipe(g.all_recipes.gnome_recipe)
+	delete(g.all_goals.tier_one.input_map)
+	delete(g.all_goals.tier_two.input_map)
 	delete(g.item_pickup)
-	// delete(g.cubes)
 	delete(g.travelPoints)
 	delete(g.travel)
 	free(g)

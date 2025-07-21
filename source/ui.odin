@@ -6,6 +6,12 @@ import rl "vendor:raylib"
 Selected_Entity_Actions :: [9]string
 Selected_Entity_Action_Events :: [9]Event
 
+Extra_UI_State :: enum {
+	None,
+	Output,
+	Recipe,
+}
+
 SelectedEntity :: struct {
 	id:                      int,
 	using ThreeDeeEntity:    ThreeDeeEntity,
