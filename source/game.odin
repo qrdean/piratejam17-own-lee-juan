@@ -34,6 +34,7 @@ import rlgl "vendor:raylib/rlgl"
 
 PIXEL_WINDOW_HEIGHT :: 360
 TILE_SIZE :: 32
+MAX_RESOURCES :: 250
 
 shader_version_folder := "version330"
 
@@ -55,16 +56,23 @@ Game_Memory :: struct {
 	button_event:           Event,
 	player_mode:            PlayerMode,
 	selected:               SelectedEntity,
-	current_collision_info: rl.RayCollision,
+	current_collision_info: RayCollisionInfo,
 	current_placing_info:   Placing_Info,
 	current_output_info:    Output_Info,
 	current_recipe_info:    RecipeInfo,
+	current_extra_ui_state: Extra_UI_State,
+	entity_id_counter:      u64,
 	item_pickup:            map[ItemType]i32,
 	debug_info:             DebugInfo,
 }
 
 g: ^Game_Memory
 
+Extra_UI_State :: enum {
+	None,
+	Output,
+	Recipe,
+}
 DebugInfo :: struct {
 	distance_info_1:   f32,
 	is_distance_close: bool,
@@ -76,15 +84,19 @@ Placing_Info :: struct {
 }
 
 Output_Info :: struct {
-	open:                    bool,
 	building_id:             int,
 	output_id:               int,
 	collision_info:          bool,
 	destination_building_id: int,
 }
 
+RayCollisionInfo :: struct {
+	using RayCollision:  rl.RayCollision,
+	is_hitting_anything: bool,
+}
+
+
 RecipeInfo :: struct {
-	open:        bool,
 	building_id: int,
 	recipe_type: RecipeType,
 }
@@ -124,6 +136,12 @@ ThreeDeeEntity :: struct {
 	color:           rl.Color,
 	original_color:  rl.Color,
 	highlight_color: rl.Color,
+	active:          bool,
+}
+
+FactoryType :: enum {
+	Miner,
+	Transformer,
 }
 
 FactoryEntity :: struct {
@@ -131,6 +149,7 @@ FactoryEntity :: struct {
 	using Constructor:    Constructor,
 	output_workers:       [9]Worker,
 	worker_count:         int,
+	factory_type:         FactoryType,
 }
 
 Worker :: struct {
@@ -173,8 +192,9 @@ RecipeType :: enum {
 }
 
 Recipe :: struct {
-	input_map:  map[ItemType]i32,
-	output_map: map[ItemType]i32,
+	input_map:      map[ItemType]i32,
+	output_map:     map[ItemType]i32,
+	construct_time: f32,
 }
 
 get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
@@ -184,20 +204,23 @@ get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 		a[.Gnome] = 1
 		b := make(map[ItemType]i32)
 		b[.Grass] = 1
-		return {input_map = a, output_map = b}
+		construct_time := number_per_minute_to_frame_time(20.)
+		return {input_map = a, output_map = b, construct_time = construct_time}
 	case .Concrete:
 		a := make(map[ItemType]i32)
 		a[.Gnome] = 1
 		a[.Grass] = 1
 		b := make(map[ItemType]i32)
 		b[.Concrete] = 1
-		return {input_map = a, output_map = b}
+		construct_time := number_per_minute_to_frame_time(2.)
+		return {input_map = a, output_map = b, construct_time = construct_time}
 	case .Gnome:
 		a := make(map[ItemType]i32)
 		b := make(map[ItemType]i32)
 		a[.None] = 0
 		b[.Gnome] = 1
-		return {input_map = a, output_map = b}
+		construct_time := number_per_minute_to_frame_time(60.)
+		return {input_map = a, output_map = b, construct_time = construct_time}
 	}
 	return {}
 }
@@ -212,6 +235,10 @@ get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
 		return g.all_recipes.gnome_recipe
 	}
 	return {}
+}
+
+overwrite_recipe_time :: proc(recipe: ^Recipe, new_per_minute: f32) {
+	recipe.construct_time = number_per_minute_to_frame_time(new_per_minute)
 }
 
 clean_up_recipe :: proc(recipe: Recipe) {
@@ -253,14 +280,26 @@ add_qty_to_output :: proc(constructor: ^Constructor, recipe: Recipe) {
 }
 
 Constructor :: struct {
-	recipe_type:     RecipeType,
-	current_inputs:  map[ItemType]i32,
-	current_outputs: map[ItemType]i32,
+	recipe_type:            RecipeType,
+	current_inputs:         map[ItemType]i32,
+	current_outputs:        map[ItemType]i32,
+	current_construct_time: f32,
 }
 
 clean_up_constructor :: proc(constructor: ^Constructor) {
 	delete(constructor.current_inputs)
 	delete(constructor.current_outputs)
+}
+
+check_construction_time :: proc(constructor: Constructor) -> bool {
+	return(
+		constructor.current_construct_time >
+		get_recipe_from_memory(constructor.recipe_type).construct_time \
+	)
+}
+
+handle_construction_time :: proc(constructor: ^Constructor, dt: f32) {
+	constructor.current_construct_time += dt
 }
 
 transform_constructor_item :: proc(constructor: ^Constructor) {
@@ -291,6 +330,48 @@ set_constructor_recipe :: proc(constructor: ^Constructor, recipe_type: RecipeTyp
 	}
 }
 
+delete_factory_from_world :: proc(building_id: int) {
+	if len(g.travelPoints) < building_id {
+		fmt.println("something went wrong with the building_id")
+		return
+	}
+	for key in g.travelPoints[building_id].current_inputs {
+		g.item_pickup[key] += g.travelPoints[building_id].current_inputs[key]
+	}
+	for key in g.travelPoints[building_id].current_outputs {
+		g.item_pickup[key] += g.travelPoints[building_id].current_outputs[key]
+	}
+
+	// Remove all associated travelers from this building and collect any carrying items
+	for i in 0 ..< len(g.travel) {
+		workers := g.travelPoints[g.travel[i].building_id].output_workers[g.travel[i].worker_id]
+		fmt.println(workers.destination_id)
+		fmt.println(building_id)
+		if (g.travel[i].building_id == building_id) {
+			if g.travel[i].current_cargo.ItemType != .None {
+				g.item_pickup[g.travel[i].current_cargo.ItemType] += 1
+			}
+			// unordered_remove(&g.travel, i)
+			g.travel[i].active = false
+		} else if (g.travel[i].current_target_id == building_id) {
+			if g.travel[i].current_cargo.ItemType != .None {
+				g.item_pickup[g.travel[i].current_cargo.ItemType] += 1
+			}
+			g.travel[i].active = false
+		} else if (workers.destination_id == building_id) {
+			g.travel[i].active = false
+		}
+	}
+	g.selected = {}
+	clean_up_constructor(&g.travelPoints[building_id])
+	g.travelPoints[building_id] = {}
+	for i in 0 ..< len(g.travel) {
+		if !g.travel[i].active {
+			g.travel[i] = {}
+		}
+	}
+}
+
 GroundQuad :: struct {
 	g0: rl.Vector3,
 	g1: rl.Vector3,
@@ -299,14 +380,20 @@ GroundQuad :: struct {
 }
 
 ModelType :: enum {
+	None,
 	Cube,
 	Rectangle,
 	Point,
 	Boat,
+	Factory,
+	Miner,
+	Cat,
 }
 
 get_model :: proc(stuff: ModelType) -> rl.Model {
 	switch stuff {
+	case .None:
+		return g.allResources.cubeModel
 	case .Cube:
 		return g.allResources.cubeModel
 	case .Rectangle:
@@ -315,6 +402,12 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.boatModel
 	case .Point:
 		return g.allResources.pointModel
+	case .Factory:
+		return g.allResources.rectangleModel
+	case .Miner:
+		return g.allResources.cubeModel
+	case .Cat:
+		return g.allResources.cubeModel
 	}
 	return g.allResources.cubeModel
 }
@@ -331,14 +424,22 @@ get_model_from_item :: proc(item_type: ItemType) -> rl.Model {
 
 type_to_string :: proc(modelType: ModelType) -> string {
 	switch modelType {
-	case ModelType.Cube:
+	case .None:
+		return "None"
+	case .Cube:
 		return "Cube"
-	case ModelType.Rectangle:
+	case .Rectangle:
 		return "Rectangle"
-	case ModelType.Boat:
+	case .Boat:
 		return "Boat"
 	case .Point:
 		return "Point"
+	case .Factory:
+		return "Factory"
+	case .Miner:
+		return "Miner"
+	case .Cat:
+		return "Cat"
 	}
 	return "undefined"
 }
@@ -399,6 +500,7 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 		current_target_id = worker.destination_id,
 		building_id = building_id,
 		worker_id = worker_count,
+		active = true,
 	}
 	append(&g.travel, travel_entity)
 	g.travelPoints[building_id].worker_count += 1
@@ -440,25 +542,27 @@ update_shaders :: proc() {
 	)
 }
 
-handle_collisions_three_dee :: proc(three_dee: ThreeDeeEntity, id: int) -> rl.RayCollision {
+handle_collisions_three_dee :: proc(three_dee: ThreeDeeEntity) -> rl.RayCollision {
 	cubeBB := bounding_box_and_transform(three_dee.bb, three_dee.position)
 	rCollision := rl.GetRayCollisionBox(g.currentRay, cubeBB)
-	if rCollision.hit {
-		g.selected = SelectedEntity {
-			id                      = id,
-			ThreeDeeEntity          = three_dee,
-			selected_entity_actions = get_selected_entity_action_events_cube(
-				id,
-				three_dee.type,
-				three_dee.position,
-			),
-		}
-	}
 	return rCollision
+}
+
+handle_entity_selection :: proc(three_dee: ThreeDeeEntity, id: int) {
+	g.selected = SelectedEntity {
+		id                      = id,
+		ThreeDeeEntity          = three_dee,
+		selected_entity_actions = get_selected_entity_action_events_cube(
+			id,
+			three_dee.type,
+			three_dee.position,
+		),
+	}
 }
 
 handle_editor_update :: proc() {
 	if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+		hit_anything := false
 		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
 		// for i in 0 ..< len(g.cubes) {
 		// 	cube := g.cubes[i]
@@ -467,9 +571,16 @@ handle_editor_update :: proc() {
 		// }
 
 		for i in 0 ..< len(g.travelPoints) {
+			if !g.travelPoints[i].active {continue}
 			travelPoint := g.travelPoints[i]
-			rCollision := handle_collisions_three_dee(travelPoint, i)
+			rCollision := handle_collisions_three_dee(travelPoint)
+			if rCollision.hit {
+				handle_entity_selection(travelPoint, i)
+			}
 			g.travelPoints[i].selected = rCollision.hit
+			if !hit_anything && rCollision.hit {
+				hit_anything = true
+			}
 		}
 
 		// for i in 0 ..< len(g.travel) {
@@ -482,11 +593,18 @@ handle_editor_update :: proc() {
 	if rl.IsMouseButtonDown(.RIGHT) {
 		rl.UpdateCamera(&g.camera, .FREE)
 	}
+
+	if rl.IsKeyPressed(.B) {
+		g.selected = {}
+		g.current_extra_ui_state = .None
+		unhighlight_all_travelers()
+	}
 }
 
 handle_placing_mode :: proc() {
 	g.current_placing_info.collision_info = false
 	for i in 0 ..< len(g.travelPoints) {
+		if !g.travelPoints[i].active {continue}
 		bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
 		if rl.CheckCollisionBoxes(
 			bb,
@@ -511,6 +629,7 @@ handle_placing_mode :: proc() {
 					type     = g.current_placing_info.modelType,
 					color    = rl.BROWN,
 					bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+					active   = true,
 				}
 				append(&g.cubes, cubeEntity)
 			}
@@ -528,6 +647,7 @@ handle_placing_mode :: proc() {
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
 				),
+				active          = true,
 			}
 			append(&g.travelPoints, entity)
 		}
@@ -536,6 +656,15 @@ handle_placing_mode :: proc() {
 }
 
 calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
+	if len(g.travelPoints) < travel_entity.current_target_id {
+		fmt.println("out of bounds. Likely deleted")
+		fmt.println("...printing debug...")
+		fmt.println(travel_entity)
+		return
+	}
+
+	if !g.travelPoints[travel_entity.current_target_id].active {return}
+
 	distanceTo := rl.Vector3Distance(
 		travel_entity.position,
 		g.travelPoints[travel_entity.current_target_id].position,
@@ -554,12 +683,28 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		if travel_entity.current_target_id == workers.destination_id {
 			// Handle drop off
 			factory := g.travelPoints[travel_entity.current_target_id]
-			recipe := get_recipe_from_memory(factory.recipe_type)
-			if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
-				current_item_type := travel_entity.current_cargo.ItemType
-				g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
-				1
-				travel_entity.current_cargo.ItemType = .None
+			if factory.current_inputs[travel_entity.current_cargo.ItemType] < MAX_RESOURCES {
+				recipe := get_recipe_from_memory(factory.recipe_type)
+				if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
+					current_item_type := travel_entity.current_cargo.ItemType
+					g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
+					1
+					travel_entity.current_cargo.ItemType = .None
+				}
+			} else {
+				// FIXME: Need to refactor the finding code and destination code to be a bit more generic. 
+				// Currently assumption is buildings know their assigned destinations but actual traveler has no idea
+				// find next target
+				// for i in 0 ..< len(g.travelPoints) {
+				// 	factory := g.travelPoints[i]
+				// 	if i != workers.destination_id {
+				// 		recipe := get_recipe_from_memory(factory.recipe_type)
+				// 		if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
+				// 			travel_entity.current_target_id = i
+				// 			break
+				// 		}
+				// 	}
+				// }
 			}
 			// Next target
 			travel_entity.current_target_id = workers.origin_id
@@ -570,6 +715,8 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 				if g.travelPoints[travel_entity.current_target_id].current_outputs[key] > 0 {
 					g.travelPoints[travel_entity.current_target_id].current_outputs[key] -= 1
 					travel_entity.current_cargo.ItemType = key
+					travel_entity.current_cargo.position_offset = rl.Vector3{0., 1., 0.}
+					travel_entity.current_cargo.color = rl.WHITE
 				}
 			}
 			// Next target
@@ -582,6 +729,7 @@ handle_selecting_update :: proc() {
 	g.current_output_info.collision_info = false
 	g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
 	for i in 0 ..< len(g.travelPoints) {
+		if !g.travelPoints[i].active {continue}
 		if i == int(g.current_output_info.building_id) {
 			continue
 		}
@@ -597,7 +745,7 @@ handle_selecting_update :: proc() {
 		// 	g.current_output_info.destination_building_id = i
 		// }
 		travelPoint := g.travelPoints[i]
-		rCollision := handle_collisions_three_dee(travelPoint, i)
+		rCollision := handle_collisions_three_dee(travelPoint)
 		if rCollision.hit {
 			g.current_output_info.collision_info = true
 			g.current_output_info.destination_building_id = i
@@ -608,10 +756,10 @@ handle_selecting_update :: proc() {
 		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
 		for i in 0 ..< len(g.travelPoints) {
 			travelPoint := g.travelPoints[i]
-			rCollision := handle_collisions_three_dee(travelPoint, i)
+			rCollision := handle_collisions_three_dee(travelPoint)
 			if rCollision.hit {
 				g.player_mode = .Viewing
-				g.current_output_info.open = false
+				g.current_extra_ui_state = .None
 				rl.DisableCursor()
 				g.travelPoints[i].color = g.travelPoints[i].original_color
 				g.travelPoints[g.current_output_info.building_id].output_workers[g.current_output_info.output_id].destination_id =
@@ -625,6 +773,18 @@ handle_selecting_update :: proc() {
 		// 	g.player_mode = .Viewing
 		// 	g.current_output_info.open = false
 		// }
+	}
+}
+
+highlight_all_travelers_by_id :: proc(building_id: int) {
+	for i in 0 ..< len(g.travel) {
+		g.travel[i].selected = g.travel[i].building_id == building_id
+	}
+}
+
+unhighlight_all_travelers :: proc() {
+	for i in 0 ..< len(g.travel) {
+		g.travel[i].selected = false
 	}
 }
 
@@ -642,7 +802,7 @@ update :: proc() {
 	)
 
 	if (ground_collision_info.hit) {
-		g.current_collision_info = ground_collision_info
+		g.current_collision_info.RayCollision = ground_collision_info
 	}
 
 	switch g.player_mode {
@@ -661,7 +821,22 @@ update :: proc() {
 	}
 
 	for i in 0 ..< len(g.travelPoints) {
-		transform_constructor_item(&g.travelPoints[i])
+		if !g.travelPoints[i].active {continue}
+		maxed_out := false
+		for key in g.travelPoints[i].current_outputs {
+			if g.travelPoints[i].current_outputs[key] > MAX_RESOURCES {
+				maxed_out = true
+			}
+		}
+		if maxed_out {
+			g.travelPoints[i].current_construct_time = 0
+			continue
+		}
+		g.travelPoints[i].current_construct_time += rl.GetFrameTime()
+		if check_construction_time(g.travelPoints[i]) {
+			transform_constructor_item(&g.travelPoints[i])
+			g.travelPoints[i].current_construct_time = 0
+		}
 	}
 
 	if rl.IsKeyPressed(.R) {
@@ -669,16 +844,19 @@ update :: proc() {
 			g.player_mode = .Editing
 		} else {
 			g.player_mode = .Viewing
+			unhighlight_all_travelers()
 		}
 
 		if g.player_mode == .Viewing {rl.DisableCursor()} else {rl.EnableCursor()}
 	}
 
 	if rl.IsKeyPressed(.P) {
-		test_constructor_scenario_1()
-		test_constructor_scenario_2()
-		test_constructor_scenario_3()
-		test_item_check()
+		// test_constructor_scenario_1()
+		// test_constructor_scenario_2()
+		// test_constructor_scenario_3()
+		// test_item_check()
+		// overwrite_recipe_time(&g.all_recipes.gnome_recipe, 120.)
+		test_dynamic_array_removal()
 	}
 
 
@@ -717,6 +895,7 @@ draw_selecting_point :: proc() {
 		color = rl.GREEN
 	}
 	for i in 0 ..< len(g.travelPoints) {
+		if !g.travelPoints[i].active {continue}
 		if g.current_output_info.destination_building_id == i {
 			g.travelPoints[i].color = g.travelPoints[i].highlight_color
 		} else {
@@ -772,15 +951,20 @@ draw :: proc() {
 
 	for i in 0 ..< len(g.cubes) {
 		draw_three_dee_entity(g.cubes[i])
-		if g.player_mode == .Editing && g.cubes[i].selected {
-			draw_editing_layer(g.cubes[i])
+		if g.selected.type == .Cube {
+			if g.player_mode == .Editing && g.selected.id == i {
+				draw_editing_layer(g.cubes[i])
+			}
 		}
 	}
 
 	for i in 0 ..< len(g.travelPoints) {
+		if !g.travelPoints[i].active {continue}
 		draw_three_dee_entity(g.travelPoints[i])
-		if g.player_mode == .Editing && g.travelPoints[i].selected {
-			draw_editing_layer(g.travelPoints[i])
+		if g.selected.type == .Rectangle {
+			if g.player_mode == .Editing && g.selected.id == i {
+				draw_editing_layer(g.travelPoints[i])
+			}
 		}
 	}
 
@@ -794,6 +978,9 @@ draw :: proc() {
 				g.travel[i].current_cargo.color,
 			)
 		}
+		if g.travel[i].selected {
+			draw_editing_layer(g.travel[i])
+		}
 	}
 
 	rl.EndBlendMode()
@@ -801,11 +988,10 @@ draw :: proc() {
 
 	rl.BeginMode2D(ui_camera())
 	travel_point_info: FactoryEntity
-	for i in 0 ..< len(g.travelPoints) {
-		if (g.travelPoints[i].selected) {
-			travel_point_info = g.travelPoints[i]
-		}
+	if g.selected.type == .Rectangle {
+		travel_point_info = g.travelPoints[g.selected.id]
 	}
+
 	debug_info := []cstring {
 		fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
 		fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
@@ -844,7 +1030,7 @@ game_init_window :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(1280, 720, "Odin + Raylib + Hot Reload template!")
 	rl.SetWindowMonitor(0)
-	rl.SetTargetFPS(144)
+	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
 }
 
@@ -954,6 +1140,7 @@ game_init :: proc() {
 				highlight_color = rl.GREEN,
 				bb              = rectBB,
 				recipe_type     = .Grass,
+				active          = true,
 			}
 
 			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
@@ -972,6 +1159,7 @@ game_init :: proc() {
 				highlight_color = rl.GREEN,
 				bb              = rectBB,
 				recipe_type     = .Grass,
+				active          = true,
 			}
 
 			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {

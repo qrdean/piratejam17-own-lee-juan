@@ -24,6 +24,7 @@ ButtonActions :: union {
 	Output_View,
 	Recipe_View,
 	Recipe_Select,
+	Delete_Building,
 }
 
 Place_Object :: struct {
@@ -47,6 +48,9 @@ Recipe_View :: struct {
 }
 Recipe_Select :: struct {
 	recipe_type: RecipeType,
+}
+Delete_Building :: struct {
+	building_id: int,
 }
 
 Gui_Buttons_Rectangles: [9]rl.Rectangle = {
@@ -99,7 +103,7 @@ get_selected_entity_action_events_cube :: proc(
 		{"Add", Spawn_Traveler{building_id = building_id, model = modelType, position = position}},
 		{"Output", Output_View{building_id = building_id}},
 		{"Recipe", Recipe_View{building_id = building_id}},
-		{},
+		{"Delete", Delete_Building{building_id = building_id}},
 		{},
 		{},
 		{},
@@ -136,51 +140,36 @@ get_selected_entity_actions_events_output :: proc() -> Selected_Entity_Action_Ev
 	}
 }
 
-get_selected_entity_action_events :: proc(modelType: ModelType) -> Selected_Entity_Action_Events {
-	switch modelType {
-	case ModelType.Cube:
-		return Selected_Entity_Action_Events {
-			{"add", Spawn_Traveler{model = .Cube, position = rl.Vector3(0)}},
-			{},
-			{},
-			{},
-			{},
-			{},
-			{},
-			{},
-			{},
-		}
-	case ModelType.Rectangle:
-		return Selected_Entity_Action_Events{}
-	case ModelType.Boat:
-		return Selected_Entity_Action_Events{}
-	case .Point:
-		return Selected_Entity_Action_Events{}
-	}
-	return Selected_Entity_Action_Events{}
-}
-
-handle_button :: proc() {
+handle_button :: proc() -> bool {
 	if g.button_event.Data != nil {
-		fmt.println(g.button_event.ButtonText)
 		switch d in g.button_event.Data {
 		case Place_Object:
 			g.current_placing_info.modelType = d.model
 			g.current_placing_info.collision_info = false
 			g.player_mode = .Placing
+			g.current_extra_ui_state = .None
 		case Spawn_Traveler:
 			fmt.println(d)
 			spawn_travel_entity(d.building_id, d.position, d.model)
+			unhighlight_all_travelers()
 		case Select_Target:
 			g.player_mode = .Selecting
 			g.current_output_info.output_id = d.output_id
+			g.current_extra_ui_state = .None
 		case Output_View:
 			g.current_output_info.building_id = d.building_id
-			g.current_output_info.open = true
+			// g.current_output_info.open = true
+			g.current_extra_ui_state = .Output
 			g.player_mode = .Editing
+			// NOTE: could be slow with a lot of travelers. careful here. Could change to access 
+			// Because traveler is tied to a building Id could add the ability to 
+			// change this handle a set of keys in a map?
+			highlight_all_travelers_by_id(d.building_id)
 		case Recipe_View:
-			g.current_recipe_info.open = true
+			// g.current_recipe_info.open = true
+			g.current_extra_ui_state = .Recipe
 			g.current_recipe_info.building_id = d.building_id
+			unhighlight_all_travelers()
 		case Recipe_Select:
 			g.current_recipe_info.recipe_type = d.recipe_type
 			for i in 0 ..< len(g.travelPoints) {
@@ -189,12 +178,16 @@ handle_button :: proc() {
 					break
 				}
 			}
-			g.current_recipe_info.open = false
+			g.current_extra_ui_state = .None
+		case Delete_Building:
+			delete_factory_from_world(d.building_id)
 		case:
 			fmt.println("unhandled?")
 		}
 		g.button_event.Data = nil
+		return true
 	}
+	return false
 }
 
 draw_default_button_ui :: proc() {
@@ -216,39 +209,42 @@ draw_default_button_ui :: proc() {
 	}
 }
 
-draw_button_ui :: proc(selected: SelectedEntity) {
+GuiPanelSize :: enum {
+	Normal,
+	Large,
+}
+
+get_gui_panel_rectangle_position :: proc(x, y: f32) -> rl.Rectangle {
+	return rl.Rectangle{x, y, 212, 132}
+}
+
+draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Action_Events) {
+	rl.GuiPanel(get_gui_panel_rectangle_position(20, 154), fmt.ctprintf(name))
+	// rl.GuiPanel(rl.Rectangle{20, 154, 212, 132}, fmt.ctprintf(name))
 	rl.GuiEnable()
-	rl.GuiPanel(rl.Rectangle{20, 20, 210, 128}, fmt.ctprintf("%s", type_to_string(selected.type)))
-	if g.current_output_info.open {
-		rl.GuiPanel(rl.Rectangle{20, 148, 210, 128}, fmt.ctprintf("outputs"))
-		rl.GuiEnable()
-		selected_buttons := get_selected_entity_actions_events_output()
-		for i in 0 ..< len(get_selected_entity_actions_events_output()) {
-			gui_button_rectangle := Gui_Buttons_Rectangles[i]
-			gui_button_rectangle.y = gui_button_rectangle.y + (146)
-			if rl.GuiButton(
-				gui_button_rectangle,
-				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
-			) {
-				g.button_event = selected_buttons[i]
-			}
+	for i in 0 ..< len(selected_buttons) {
+		gui_button_rectangle := Gui_Buttons_Rectangles[i]
+		gui_button_rectangle.y = gui_button_rectangle.y + (138)
+		if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", selected_buttons[i].ButtonText)) {
+			g.button_event = selected_buttons[i]
 		}
 	}
+}
 
-	if g.current_recipe_info.open {
-		rl.GuiPanel(rl.Rectangle{20, 148, 210, 128}, fmt.ctprintf("Recipes"))
-		rl.GuiEnable()
-		selected_buttons := get_recipe_list()
-		for i in 0 ..< len(selected_buttons) {
-			gui_button_rectangle := Gui_Buttons_Rectangles[i]
-			gui_button_rectangle.y = gui_button_rectangle.y + (146)
-			if rl.GuiButton(
-				gui_button_rectangle,
-				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
-			) {
-				g.button_event = selected_buttons[i]
-			}
-		}
+draw_button_ui :: proc(selected: SelectedEntity) {
+	rl.GuiEnable()
+	rl.GuiPanel(
+		get_gui_panel_rectangle_position(20, 20),
+		fmt.ctprintf("%s", type_to_string(selected.type)),
+	)
+	// rl.GuiPanel(rl.Rectangle{20, 20, 212, 132}, fmt.ctprintf("%s", type_to_string(selected.type)))
+	switch g.current_extra_ui_state {
+	case .None:
+	// do nothing
+	case .Output:
+		draw_extra_ui_layer("Outputs", get_selected_entity_actions_events_output())
+	case .Recipe:
+		draw_extra_ui_layer("Recipes", get_recipe_list())
 	}
 
 	for i in 0 ..< len(selected.selected_entity_actions) {
