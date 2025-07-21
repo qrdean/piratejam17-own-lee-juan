@@ -45,7 +45,7 @@ Game_Memory :: struct {
 	some_number:            int,
 	run:                    bool,
 	camera:                 rl.Camera,
-	cubes:                  [dynamic]ThreeDeeEntity,
+	// cubes:                  [dynamic]ThreeDeeEntity,
 	travelPoints:           [dynamic]FactoryEntity,
 	travel:                 [dynamic]TravelEntity,
 	currentRay:             rl.Ray,
@@ -186,6 +186,7 @@ Item :: struct {
 }
 
 RecipeType :: enum {
+	None,
 	Grass,
 	Concrete,
 	Gnome,
@@ -199,6 +200,8 @@ Recipe :: struct {
 
 get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 	switch recipe_type {
+	case .None:
+		return {}
 	case .Grass:
 		a := make(map[ItemType]i32)
 		a[.Gnome] = 1
@@ -227,6 +230,8 @@ get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 
 get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
 	switch recipe_type {
+	case .None:
+		return {}
 	case .Grass:
 		return g.all_recipes.grass_recipe
 	case .Concrete:
@@ -603,36 +608,47 @@ handle_editor_update :: proc() {
 
 handle_placing_mode :: proc() {
 	g.current_placing_info.collision_info = false
-	for i in 0 ..< len(g.travelPoints) {
-		if !g.travelPoints[i].active {continue}
-		bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
-		if rl.CheckCollisionBoxes(
-			bb,
-			bounding_box_and_transform(
-				rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
-				g.current_collision_info.point,
-			),
-		) {
-			g.current_placing_info.collision_info = true
-		}
+	// for i in 0 ..< len(g.travelPoints) {
+	// 	if !g.travelPoints[i].active {continue}
+	// 	bb := bounding_box_and_transform(g.travelPoints[i].bb, g.travelPoints[i].position)
+	// 	if rl.CheckCollisionBoxes(
+	// 		bb,
+	// 		bounding_box_and_transform(
+	// 			rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+	// 			g.current_collision_info.point,
+	// 		),
+	// 	) {
+	// 		g.current_placing_info.collision_info = true
+	// 	}
+	// }
+
+	if rl.CheckCollisionBoxes(
+		rl.GetModelBoundingBox(g.allResources.terrainModel),
+		bounding_box_and_transform(
+			rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+			g.current_collision_info.point,
+		),
+	) {
+		g.current_placing_info.collision_info = true
 	}
+
 	if rl.IsMouseButtonPressed(.LEFT) {
 		#partial switch g.current_placing_info.modelType {
-		case .Cube:
-			if g.current_placing_info.collision_info {
-				cubeEntity := ThreeDeeEntity {
-					position = rl.Vector3 {
-						g.current_collision_info.point.x,
-						0.5,
-						g.current_collision_info.point.z,
-					},
-					type     = g.current_placing_info.modelType,
-					color    = rl.BROWN,
-					bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
-					active   = true,
-				}
-				append(&g.cubes, cubeEntity)
-			}
+		// case .Cube:
+		// 	if g.current_placing_info.collision_info {
+		// 		cubeEntity := ThreeDeeEntity {
+		// 			position = rl.Vector3 {
+		// 				g.current_collision_info.point.x,
+		// 				0.5,
+		// 				g.current_collision_info.point.z,
+		// 			},
+		// 			type     = g.current_placing_info.modelType,
+		// 			color    = rl.BROWN,
+		// 			bb       = rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+		// 			active   = true,
+		// 		}
+		// 		append(&g.cubes, cubeEntity)
+		// 	}
 		case .Rectangle:
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
@@ -648,6 +664,7 @@ handle_placing_mode :: proc() {
 					get_model(g.current_placing_info.modelType),
 				),
 				active          = true,
+				recipe_type     = .None,
 			}
 			append(&g.travelPoints, entity)
 		}
@@ -936,7 +953,7 @@ draw :: proc() {
 	rlgl.EnableDepthMask()
 	rlgl.EnableDepthTest()
 	rlgl.SetBlendMode(i32(rl.BlendMode.ALPHA))
-	// rl.DrawModel(g.terrain.model, rl.Vector3(0), 1., rl.WHITE)
+	// rl.DrawModel(g.allResources.terrainModel, rl.Vector3(0), 1., rl.YELLOW)
 	rl.DrawGrid(1000, 1.)
 	// rl.DrawModel(g.allResources.waterModel, g.waterPos, 1., rl.WHITE)
 	// rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
@@ -949,14 +966,14 @@ draw :: proc() {
 		draw_selecting_point()
 	}
 
-	for i in 0 ..< len(g.cubes) {
-		draw_three_dee_entity(g.cubes[i])
-		if g.selected.type == .Cube {
-			if g.player_mode == .Editing && g.selected.id == i {
-				draw_editing_layer(g.cubes[i])
-			}
-		}
-	}
+	// for i in 0 ..< len(g.cubes) {
+	// 	draw_three_dee_entity(g.cubes[i])
+	// 	if g.selected.type == .Cube {
+	// 		if g.player_mode == .Editing && g.selected.id == i {
+	// 			draw_editing_layer(g.cubes[i])
+	// 		}
+	// 	}
+	// }
 
 	for i in 0 ..< len(g.travelPoints) {
 		if !g.travelPoints[i].active {continue}
@@ -1041,7 +1058,7 @@ game_init :: proc() {
 
 	// terrainHeightMap := rl.LoadImage("assets/MiddleIsland.png")
 	// terrainTexture := rl.LoadTextureFromImage(terrainHeightMap)
-	terrainMesh := rl.GenMeshPlane(100., 100., 10., 5.)
+	terrainMesh := rl.GenMeshPlane(10000., 10000., 10., 5.)
 	terrainModel := rl.LoadModelFromMesh(terrainMesh)
 	// mesh := rl.GenMeshHeightmap(terrainHeightMap, rl.Vector3{10000., 200., 10000.})
 	// model.materials[0].maps[rl.MaterialMapIndex.ALBEDO].texture = terrainTexture
@@ -1199,7 +1216,7 @@ game_shutdown :: proc() {
 	clean_up_recipe(g.all_recipes.concrete_recipe)
 	clean_up_recipe(g.all_recipes.gnome_recipe)
 	delete(g.item_pickup)
-	delete(g.cubes)
+	// delete(g.cubes)
 	delete(g.travelPoints)
 	delete(g.travel)
 	free(g)

@@ -68,8 +68,8 @@ Gui_Buttons_Rectangles: [9]rl.Rectangle = {
 
 get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
-		{"Cube", Place_Object{model = ModelType.Cube}},
 		{"Rect", Place_Object{model = ModelType.Rectangle}},
+		{},
 		{},
 		{},
 		{},
