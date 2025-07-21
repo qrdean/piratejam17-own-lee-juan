@@ -304,7 +304,6 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 		return
 	}
 
-	worker := g.travelPoints[building_id].output_workers[worker_count]
 	g.travelPoints[building_id].output_workers[worker_count].origin_id = building_id
 	travel_entity := TravelEntity {
 		type = model_type,
@@ -312,7 +311,7 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 		bb = rl.GetModelBoundingBox(get_model(model_type)),
 		color = rl.BLUE,
 		current_cargo = Item{ItemType = .None},
-		current_target_id = worker.destination_id,
+		current_target_id = building_id,
 		building_id = building_id,
 		worker_id = worker_count,
 		active = true,
