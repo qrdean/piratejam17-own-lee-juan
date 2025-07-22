@@ -113,6 +113,13 @@ AllResources :: struct {
 	baseCubeModel:  rl.Model,
 	terrainModel:   rl.Model,
 	pointModel:     rl.Model,
+	unopened_can:   rl.Model,
+	can_opened:     rl.Model,
+	can_nails:      rl.Model,
+	can_strips:     rl.Model,
+	can_flat:       rl.Model,
+	can_reinforced: rl.Model,
+	can_ring:       rl.Model,
 }
 
 AllRecipes :: struct {
@@ -202,6 +209,12 @@ ModelType :: enum {
 	Manufacturer,
 	Miner,
 	Cat,
+	CanOpened,
+	CanUnopened,
+	CanStrips,
+	CanNails,
+	CanReinforced,
+	CanRing,
 }
 
 get_model :: proc(stuff: ModelType) -> rl.Model {
@@ -226,6 +239,18 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.rectangleModel
 	case .Cat:
 		return g.allResources.cubeModel
+	case .CanOpened:
+		return g.allResources.can_opened
+	case .CanUnopened:
+		return g.allResources.unopened_can
+	case .CanStrips:
+		return g.allResources.can_strips
+	case .CanNails:
+		return g.allResources.can_nails
+	case .CanReinforced:
+		return g.allResources.can_reinforced
+	case .CanRing:
+		return g.allResources.can_ring
 	}
 	return g.allResources.cubeModel
 }
@@ -233,9 +258,17 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 get_model_from_item :: proc(item_type: ItemType) -> rl.Model {
 	#partial switch item_type {
 	case .CanOpened:
-		return g.allResources.cubeModel
+		return g.allResources.unopened_can
 	case .CanFlat:
-		return g.allResources.cubeModel
+		return g.allResources.can_flat
+	case .CanStrips:
+		return g.allResources.can_strips
+	case .CanNails:
+		return g.allResources.can_nails
+	case .CanReinforced:
+		return g.allResources.can_reinforced
+	case .CanRing:
+		return g.allResources.can_ring
 	}
 	return g.allResources.cubeModel
 }
@@ -262,6 +295,18 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Miner"
 	case .Cat:
 		return "Cat"
+	case .CanOpened:
+		return "Can Opened"
+	case .CanUnopened:
+		return "Unopened"
+	case .CanStrips:
+		return "CanStrips"
+	case .CanNails:
+		return "Nails"
+	case .CanReinforced:
+		return "Reinforced"
+	case .CanRing:
+		return "Ring"
 	}
 	return "undefined"
 }
@@ -573,6 +618,28 @@ handle_selecting_update :: proc() {
 
 		travelPoint := g.travelPoints[i]
 		rCollision := handle_collisions_three_dee(travelPoint)
+
+		// Check for terrain
+		origin_point := g.travelPoints[g.current_output_info.building_id].position
+		normal := rCollision.normal
+		number_of_points := int(rCollision.distance / 10.)
+		for j in 0 ..< number_of_points {
+			next_point := origin_point + (normal * f32(j))
+			down_ray := rl.Ray {
+				position  = next_point,
+				direction = rl.Vector3{0., -1., 0.},
+			}
+			// Going to need to make multiple of these from the heightmap maybe
+			info := rl.GetRayCollisionQuad(
+				down_ray,
+				g.allResources.groundQuad.g0,
+				g.allResources.groundQuad.g1,
+				g.allResources.groundQuad.g2,
+				g.allResources.groundQuad.g3,
+			)
+			fmt.println(info.hit)
+		}
+
 		if rCollision.hit {
 			g.current_output_info.collision_info = true
 			g.current_output_info.destination_building_id = i
@@ -866,7 +933,8 @@ game_init :: proc() {
 
 	// terrainHeightMap := rl.LoadImage("assets/MiddleIsland.png")
 	// terrainTexture := rl.LoadTextureFromImage(terrainHeightMap)
-	terrainMesh := rl.GenMeshPlane(10000., 10000., 10., 5.)
+	// terrainMesh := rl.GenMeshPlane(10000., 10000., 10., 5.)
+	terrainMesh := rl.GenMeshPlane(10., 10., 10., 5.)
 	terrainModel := rl.LoadModelFromMesh(terrainMesh)
 	// mesh := rl.GenMeshHeightmap(terrainHeightMap, rl.Vector3{10000., 200., 10000.})
 	// model.materials[0].maps[rl.MaterialMapIndex.ALBEDO].texture = terrainTexture
@@ -880,6 +948,11 @@ game_init :: proc() {
 	g1 := rl.Vector3{-1000.0, 0.0, 1000.0}
 	g2 := rl.Vector3{1000.0, 0.0, 1000.0}
 	g3 := rl.Vector3{1000.0, 0.0, -1000.0}
+
+	// g0 := rl.Vector3{-10.0, 0.0, -10.0}
+	// g1 := rl.Vector3{-10.0, 0.0, 10.0}
+	// g2 := rl.Vector3{10.0, 0.0, 10.0}
+	// g3 := rl.Vector3{10.0, 0.0, -10.0}
 
 	ground_quad := GroundQuad{g0, g1, g2, g3}
 
@@ -924,6 +997,13 @@ game_init :: proc() {
 	skyModel.materials[0].shader = skyShader
 
 	baseCubeModel := rl.LoadModel("assets/models/basic_cube.glb")
+	unopened_can := rl.LoadModel("assets/models/unopened_can.glb")
+	opened_can := rl.LoadModel("assets/models/opened_can.glb")
+	nails := rl.LoadModel("assets/models/can_nails.glb")
+	strips := rl.LoadModel("assets/models/can_strips.glb")
+	flat_can := rl.LoadModel("assets/models/flat_can.glb")
+	reinforced := rl.LoadModel("assets/models/reinforced.glb")
+	ring := rl.LoadModel("assets/models/ring.glb")
 
 	resources := AllResources {
 		cubeModel      = cubeModel,
@@ -937,6 +1017,13 @@ game_init :: proc() {
 		baseCubeModel  = baseCubeModel,
 		terrainModel   = terrainModel,
 		pointModel     = pointModel,
+		unopened_can   = unopened_can,
+		can_opened     = opened_can,
+		can_nails      = nails,
+		can_strips     = strips,
+		can_flat       = flat_can,
+		can_reinforced = reinforced,
+		can_ring       = ring,
 	}
 
 	recipes := AllRecipes {
