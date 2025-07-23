@@ -62,6 +62,7 @@ Game_Memory :: struct {
 	current_extra_ui_state: Extra_UI_State,
 	item_pickup:            map[ItemType]i32,
 	debug_info:             DebugInfo,
+	terrain_position:       rl.Vector3,
 }
 
 g: ^Game_Memory
@@ -102,30 +103,37 @@ PlayerMode :: enum {
 }
 
 AllResources :: struct {
-	cubeModel:      rl.Model,
-	rectangleModel: rl.Model,
-	boatModel:      rl.Model,
-	waterModel:     rl.Model,
-	skyModel:       rl.Model,
-	waterShader:    rl.Shader,
-	skyShader:      rl.Shader,
-	groundQuad:     GroundQuad,
-	baseCubeModel:  rl.Model,
-	terrainModel:   rl.Model,
-	pointModel:     rl.Model,
-	cat:            rl.Model,
-	can_unopened:   rl.Model,
-	can_opened:     rl.Model,
-	can_nails:      rl.Model,
-	can_strips:     rl.Model,
-	can_flat:       rl.Model,
-	can_reinforced: rl.Model,
-	can_ring:       rl.Model,
-	can_rotator:    rl.Model,
-	can_motor:      rl.Model,
-	can_helm:       rl.Model,
-	can_rutter:     rl.Model,
-	can_propeller:  rl.Model,
+	test_model:         rl.Model,
+	test_model_2:       rl.Model,
+	test_model_3:       rl.Model,
+	test_model_4:       rl.Model,
+	cubeModel:          rl.Model,
+	rectangleModel:     rl.Model,
+	boatModel:          rl.Model,
+	waterModel:         rl.Model,
+	skyModel:           rl.Model,
+	waterShader:        rl.Shader,
+	skyShader:          rl.Shader,
+	groundQuad:         GroundQuad,
+	baseCubeModel:      rl.Model,
+	terrainModel:       rl.Model,
+	pointModel:         rl.Model,
+	cat:                rl.Model,
+	can_unopened:       rl.Model,
+	can_opened:         rl.Model,
+	can_nails:          rl.Model,
+	can_strips:         rl.Model,
+	can_flat:           rl.Model,
+	can_reinforced:     rl.Model,
+	can_ring:           rl.Model,
+	can_rotator:        rl.Model,
+	can_motor:          rl.Model,
+	can_helm:           rl.Model,
+	can_rutter:         rl.Model,
+	can_propeller:      rl.Model,
+	construction_model: rl.Model,
+	assembly_model:     rl.Model,
+	island_model:       rl.Model,
 }
 
 AllRecipes :: struct {
@@ -229,6 +237,7 @@ ModelType :: enum {
 	CanHelm,
 	CanRudder,
 	CanPropeller,
+	Island_1,
 }
 
 get_model :: proc(stuff: ModelType) -> rl.Model {
@@ -244,11 +253,11 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 	case .Point:
 		return g.allResources.pointModel
 	case .Construct:
-		return g.allResources.rectangleModel
+		return g.allResources.construction_model
 	case .Miner:
 		return g.allResources.cubeModel
 	case .Assemble:
-		return g.allResources.rectangleModel
+		return g.allResources.assembly_model
 	case .Manufacturer:
 		return g.allResources.rectangleModel
 	case .TurnInPoint:
@@ -277,6 +286,8 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.can_rutter
 	case .CanPropeller:
 		return g.allResources.can_propeller
+	case .Island_1:
+		return g.allResources.island_model
 	}
 	return g.allResources.cubeModel
 }
@@ -355,6 +366,8 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Helm"
 	case .CanPropeller:
 		return "Propeller"
+	case .Island_1:
+		return "Island_1"
 	}
 	return "undefined"
 }
@@ -402,7 +415,7 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 		type = model_type,
 		position = position,
 		bb = rl.GetModelBoundingBox(get_model(model_type)),
-		color = rl.BLUE,
+		color = rl.WHITE,
 		current_cargo = Item{ItemType = .None},
 		current_target_id = building_id,
 		building_id = building_id,
@@ -538,13 +551,13 @@ handle_placing_mode :: proc() {
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
 					g.current_collision_info.point.x,
-					1.0, //TODO: calculate this based on model height
+					0.0, //TODO: calculate this based on model height
 					g.current_collision_info.point.z,
 				},
 				type            = g.current_placing_info.modelType,
-				color           = rl.LIME,
-				original_color  = rl.LIME,
-				highlight_color = rl.GREEN,
+				color           = rl.WHITE,
+				original_color  = rl.WHITE,
+				highlight_color = rl.RAYWHITE,
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
 				),
@@ -557,12 +570,12 @@ handle_placing_mode :: proc() {
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
 					g.current_collision_info.point.x,
-					1.0, //TODO: calculate this based on model height
+					0.0, //TODO: calculate this based on model height
 					g.current_collision_info.point.z,
 				},
 				type            = g.current_placing_info.modelType,
-				color           = rl.GOLD,
-				original_color  = rl.GOLD,
+				color           = rl.WHITE,
+				original_color  = rl.WHITE,
 				highlight_color = rl.GREEN,
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
@@ -576,7 +589,7 @@ handle_placing_mode :: proc() {
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
 					g.current_collision_info.point.x,
-					1.0, //TODO: calculate this based on model height
+					0.0, //TODO: calculate this based on model height
 					g.current_collision_info.point.z,
 				},
 				type            = g.current_placing_info.modelType,
@@ -917,10 +930,28 @@ draw :: proc() {
 	rlgl.EnableDepthMask()
 	rlgl.EnableDepthTest()
 	rlgl.SetBlendMode(i32(rl.BlendMode.ALPHA))
-	rl.DrawModel(g.allResources.terrainModel, rl.Vector3(0), 1., rl.YELLOW)
-	rl.DrawGrid(1000, 1.)
-	// rl.DrawModel(g.allResources.waterModel, g.waterPos, 1., rl.WHITE)
-	// rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
+	// rl.DrawModel(g.allResources.terrainModel, rl.Vector3(0), 1., rl.DARKGREEN)
+	// rl.DrawModel(g.allResources.terrainModel, g.terrain_position, 1., rl.WHITE)
+	rl.DrawGrid(1000, 2.)
+	// rl.DrawModelWires(g.allResources.test_model,rl.Vector3{5.,1., 5.}, 1., rl.GREEN)
+	rl.DrawModel(g.allResources.test_model_3, rl.Vector3{5., -6., 5.}, 1., rl.BEIGE)
+	rl.DrawModel(g.allResources.test_model_4, rl.Vector3{5., -5.5, 5.}, 1., rl.BEIGE)
+	rl.DrawModel(g.allResources.test_model, rl.Vector3{5., -5., 5.}, 1., rl.DARKGREEN)
+	rl.DrawModel(g.allResources.test_model_2, rl.Vector3{45., -5., 5.}, 1., rl.DARKGREEN)
+
+	// rl.DrawModel(g.allResources.island_model, rl.Vector3(0), 1., rl.BROWN)
+	// for i in 0 ..< g.allResources.island_model.meshCount {
+	// 	rl.DrawBoundingBox(rl.GetMeshBoundingBox(g.allResources.island_model.meshes[i]), rl.GREEN)
+	// }
+	// rl.DrawBoundingBox(
+	// 	bounding_box_and_transform(
+	// 		rl.GetModelBoundingBox(g.allResources.island_model),
+	// 		rl.Vector3(0),
+	// 	),
+	// 	rl.GREEN,
+	// )
+	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., rl.WHITE)
+	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
 	// rl.DrawModel(g.allResources.baseCubeModel, rl.Vector3{1., 4., 1.}, 1.0, rl.WHITE)
 
 	if g.player_mode == .Placing {
@@ -1025,12 +1056,33 @@ game_init :: proc() {
 	rl.DisableCursor()
 	g = new(Game_Memory)
 
-	// terrainHeightMap := rl.LoadImage("assets/MiddleIsland.png")
-	// terrainTexture := rl.LoadTextureFromImage(terrainHeightMap)
-	// terrainMesh := rl.GenMeshPlane(10000., 10000., 10., 5.)
 	terrainMesh := rl.GenMeshPlane(10., 10., 10., 5.)
 	terrainModel := rl.LoadModelFromMesh(terrainMesh)
-	// mesh := rl.GenMeshHeightmap(terrainHeightMap, rl.Vector3{10000., 200., 10000.})
+
+	test_mesh := rl.GenMeshCylinder(10., 5., 9.)
+	test_model := rl.LoadModelFromMesh(test_mesh)
+
+	test_mesh2 := rl.GenMeshCylinder(20., 5., 9.)
+	test_model_2 := rl.LoadModelFromMesh(test_mesh2)
+
+	// test_mesh_3 := rl.GenMeshHemiSphere(15., 10., 15.)
+
+	// test_mesh_3 := rl.GenMeshTorus(0.25, 16., 8, 16)
+	test_mesh_3 := rl.GenMeshCylinder(15., 5., 9.)
+	test_model_3 := rl.LoadModelFromMesh(test_mesh_3)
+
+	test_mesh_4 := rl.GenMeshCylinder(13.5, 5., 9.)
+	test_model_4 := rl.LoadModelFromMesh(test_mesh_4)
+
+	// height_vs := fmt.ctprintf("assets/shaders/%s/height_color.vs", shader_version_folder)
+	// height_fs := fmt.ctprintf("assets/shaders/%s/height_color.fs", shader_version_folder)
+	// height_shader := rl.LoadShader(height_vs, height_fs)
+	// terrainSize := rl.Vector3{500., 1., 500.}
+	// terrainPosition := rl.Vector3{(-terrainSize.x / 2.0), 0.0, (-terrainSize.z / 2.0)}
+	// mesh := rl.GenMeshHeightmap(terrainHeightMap, terrainSize)
+	// terrainModel := rl.LoadModelFromMesh(mesh)
+	// terrainModel.materials[0].shader = height_shader
+
 	// model.materials[0].maps[rl.MaterialMapIndex.ALBEDO].texture = terrainTexture
 	// terrainStruct := ThreeDeeEntity {
 	// 	mesh     = mesh,
@@ -1104,32 +1156,43 @@ game_init :: proc() {
 	rutter := rl.LoadModel("assets/models/rudder.glb")
 	cat := rl.LoadModel("assets/models/cat.glb")
 	propeller := rl.LoadModel("assets/models/propeller.glb")
+	construction_model := rl.LoadModel("assets/models/construction_building.glb")
+	assembly_model := rl.LoadModel("assets/models/assembly_building.glb")
+
+	island_model := rl.LoadModel("assets/models/island_1.glb")
 
 	resources := AllResources {
-		cubeModel      = cubeModel,
-		rectangleModel = rectModel,
-		boatModel      = boatModel,
-		waterModel     = waterModel,
-		skyModel       = skyModel,
-		waterShader    = waterShader,
-		skyShader      = skyShader,
-		groundQuad     = ground_quad,
-		baseCubeModel  = baseCubeModel,
-		terrainModel   = terrainModel,
-		pointModel     = pointModel,
-		cat            = cat,
-		can_unopened   = unopened_can,
-		can_opened     = opened_can,
-		can_nails      = nails,
-		can_strips     = strips,
-		can_flat       = flat_can,
-		can_reinforced = reinforced,
-		can_ring       = ring,
-		can_rotator    = rotator,
-		can_motor      = motor,
-		can_helm       = helm,
-		can_rutter     = rutter,
-		can_propeller  = propeller,
+		test_model         = test_model,
+		test_model_2       = test_model_2,
+		test_model_3       = test_model_3,
+		test_model_4       = test_model_4,
+		cubeModel          = cubeModel,
+		rectangleModel     = rectModel,
+		boatModel          = boatModel,
+		waterModel         = waterModel,
+		skyModel           = skyModel,
+		waterShader        = waterShader,
+		skyShader          = skyShader,
+		groundQuad         = ground_quad,
+		baseCubeModel      = baseCubeModel,
+		terrainModel       = terrainModel,
+		pointModel         = pointModel,
+		cat                = cat,
+		can_unopened       = unopened_can,
+		can_opened         = opened_can,
+		can_nails          = nails,
+		can_strips         = strips,
+		can_flat           = flat_can,
+		can_reinforced     = reinforced,
+		can_ring           = ring,
+		can_rotator        = rotator,
+		can_motor          = motor,
+		can_helm           = helm,
+		can_rutter         = rutter,
+		can_propeller      = propeller,
+		construction_model = construction_model,
+		assembly_model     = assembly_model,
+		island_model       = island_model,
 	}
 
 	recipes := AllRecipes {
@@ -1163,6 +1226,8 @@ game_init :: proc() {
 		player_mode  = PlayerMode.Viewing,
 		debug_info   = DebugInfo{},
 	}
+
+	// g.terrain_position = terrainPosition
 
 	for i in 0 ..< 3 {
 		if (i % 2 == 0) {
@@ -1257,6 +1322,9 @@ game_shutdown :: proc() {
 	rl.UnloadModel(g.allResources.can_helm)
 	rl.UnloadModel(g.allResources.can_rutter)
 	rl.UnloadModel(g.allResources.can_propeller)
+	rl.UnloadModel(g.allResources.construction_model)
+	rl.UnloadModel(g.allResources.assembly_model)
+	rl.UnloadModel(g.allResources.island_model)
 
 	clean_up_recipe(g.all_recipes.can_opened)
 	clean_up_recipe(g.all_recipes.can_flat)
