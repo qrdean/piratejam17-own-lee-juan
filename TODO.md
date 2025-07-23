@@ -15,7 +15,7 @@ Automation constructor
 [x] Cap on inputs and outputs
 [x] Delete Structures - needs more testing but basics seem to function
 [x] Colors for recipes? This might need to be shader based? Or maybe I can change the albdeo of the material like in Godot? Testing is needed
-[] Start worker at 'origin' building 
+[x] Start worker at 'origin' building 
 [] Disable Output Targeting button based on number of current workers e.g. 0 workers enable button 1. 1 workers enable button 2 and so on.
 [] ability to balance the inputs into other similar inputs
 [] Add a fuel/electricity component with fuel

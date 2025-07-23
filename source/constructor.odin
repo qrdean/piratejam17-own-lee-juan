@@ -101,6 +101,12 @@ delete_factory_from_world :: proc(building_id: int) {
 	for i in 0 ..< len(g.travel) {
 		if !g.travel[i].active {
 			g.travel[i] = {}
+			for (len(g.travel) > 0) && !g.travel[len(g.travel)-1].active {
+      	pop(&g.travel)
+			}
+			if len(g.travel) > 0 {
+				unordered_remove(&g.travel, i)
+			}
 		}
 	}
 }

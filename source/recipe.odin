@@ -274,8 +274,8 @@ get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
 	return {}
 }
 
-overwrite_recipe_time :: proc(recipe: ^Recipe, new_per_minute: f32) {
-	recipe.construct_time = number_per_minute_to_frame_time(new_per_minute)
+overwrite_recipe_time :: proc(recipe: ^Recipe, seconds: f32) {
+	recipe.construct_time = seconds_to_minute(seconds)
 }
 
 clean_up_recipe :: proc(recipe: Recipe) {
