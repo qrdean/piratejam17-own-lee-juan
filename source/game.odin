@@ -868,10 +868,11 @@ update :: proc() {
 ////////////////////////////// DRAW ////////////////////////////////
 
 draw_debug_info :: proc(debug_info: []cstring) {
-	text_spacing: int = PIXEL_WINDOW_HEIGHT - 15
+	// text_spacing: int = PIXEL_WINDOW_HEIGHT - 15
+	text_spacing: int = 5
 	for info in debug_info {
-		rl.DrawText(info, 5, auto_cast text_spacing, 8., rl.BLACK)
-		text_spacing -= 11
+		rl.DrawText(info, 5, auto_cast text_spacing, 8., rl.DARKGRAY)
+		text_spacing += 11
 	}
 }
 
@@ -1024,19 +1025,26 @@ draw :: proc() {
 		fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
 		fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
 		fmt.ctprintf("Player Mode %v\n", g.player_mode),
-		fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_outputs)),
-		fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_inputs)),
-		fmt.ctprintf("selected info %v\n", travel_point_info.recipe_type),
+		fmt.ctprintf("Output: %v\n", get_item_map_text(travel_point_info.current_outputs)),
+		fmt.ctprintf("Input: %v\n", get_item_map_text(travel_point_info.current_inputs)),
+		fmt.ctprintf("Recipe: %v\n", travel_point_info.recipe_type),
 		fmt.ctprintf(
-			"current goal %v\n",
+			"Current Goal %v\n",
 			get_item_map_text(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
 		),
 	}
+ 	rl.DrawRectangle(3, 0, 122, 1, rl.GRAY)
+	rl.DrawRectangle(4, 1, 120, 3, rl.LIGHTGRAY)
+	rl.DrawRectangle(3, 1, 1, 83, rl.LIGHTGRAY)
+	rl.DrawRectangle(3, 83, 122, 2, rl.LIGHTGRAY)
+	rl.DrawRectangle(124, 1, 1, 83, rl.LIGHTGRAY)
+	rl.DrawRectangle(4, 4, 120, 80, rl.RAYWHITE)
 	draw_debug_info(debug_info)
 	rl.EndMode2D()
 
 	if g.player_mode == .Editing {
 		draw_button_ui(g.selected)
+		draw_entity_info_ui(g.selected)
 		draw_default_button_ui()
 	}
 
@@ -1073,6 +1081,7 @@ game_init_window :: proc() {
 	rl.SetWindowMonitor(0)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
+	// rl.GuiLoadStyleTerminal()
 }
 
 @(export)

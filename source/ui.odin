@@ -176,17 +176,23 @@ handle_button :: proc() -> bool {
 			g.current_output_info.output_id = d.output_id
 			g.current_extra_ui_state = .None
 		case Output_View:
-			g.current_output_info.building_id = d.building_id
-			// g.current_output_info.open = true
-			g.current_extra_ui_state = .Output
-			g.player_mode = .Editing
+			if g.current_extra_ui_state == .Output {
+				g.current_extra_ui_state = .None
+			} else {
+				g.current_extra_ui_state = .Output
+				g.current_output_info.building_id = d.building_id
+			}
 			// NOTE: could be slow with a lot of travelers. careful here. Could change to access 
 			// Because traveler is tied to a building Id could add the ability to 
 			// change this handle a set of keys in a map?
 			highlight_all_travelers_by_id(d.building_id)
 		case Recipe_View:
-			g.current_extra_ui_state = .Recipe
-			g.current_recipe_info.building_id = d.building_id
+			if g.current_extra_ui_state == .Recipe {
+				g.current_extra_ui_state = .None
+			} else {
+				g.current_extra_ui_state = .Recipe
+				g.current_recipe_info.building_id = d.building_id
+			}
 			unhighlight_all_travelers()
 		case Recipe_Select:
 			g.current_recipe_info.recipe_type = d.recipe_type
@@ -251,8 +257,13 @@ draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Acti
 	for i in 0 ..< len(selected_buttons) {
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
 		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 347)
-		if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", selected_buttons[i].ButtonText)) {
-			g.button_event = selected_buttons[i]
+		if selected_buttons[i].Data != nil {
+			if rl.GuiButton(
+				gui_button_rectangle,
+				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
+			) {
+				g.button_event = selected_buttons[i]
+			}
 		}
 	}
 }
@@ -297,4 +308,40 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 			g.button_event = selected.selected_entity_actions[i]
 		}
 	}
+}
+
+draw_entity_info_ui :: proc(selected: SelectedEntity) {
+	if selected.type == .None {
+		return
+	}
+	rl.GuiEnable()
+	rl.GuiPanel(
+		get_gui_panel_rectangle_position(330, f32(rl.GetScreenHeight()) - 194),
+		fmt.ctprintf("Info"),
+	)
+	travel_point_info := g.travelPoints[g.selected.id]
+	a := fmt.ctprintf(
+		"recipe: %v\ninput: %v\noutput:%v\n",
+		travel_point_info.recipe_type,
+		get_item_map_text(travel_point_info.current_inputs),
+		get_item_map_text(travel_point_info.current_outputs),
+	)
+	// fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_inputs)),
+	// fmt.ctprintf("selected info %v\n", travel_point_info.recipe_type),
+	// rl.GuiSetStyle(
+	// 	rl.GuiControl.DEFAULT,
+	// 	i32(rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL),
+	// 	i32(rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP),
+	// )
+	rl.GuiTextBox(
+		get_gui_panel_rectangle_position(330, f32(rl.GetScreenHeight()) - 194),
+		a,
+		1024,
+		false,
+	)
+	// rl.GuiSetStyle(
+	// 	rl.GuiControl.DEFAULT,
+	// 	i32(rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL),
+	// 	i32(rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE),
+	// )
 }
