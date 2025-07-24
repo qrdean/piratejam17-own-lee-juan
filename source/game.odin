@@ -103,37 +103,39 @@ PlayerMode :: enum {
 }
 
 AllResources :: struct {
-	test_model:         rl.Model,
-	test_model_2:       rl.Model,
-	test_model_3:       rl.Model,
-	test_model_4:       rl.Model,
-	cubeModel:          rl.Model,
-	rectangleModel:     rl.Model,
-	boatModel:          rl.Model,
-	waterModel:         rl.Model,
-	skyModel:           rl.Model,
-	waterShader:        rl.Shader,
-	skyShader:          rl.Shader,
-	groundQuad:         GroundQuad,
-	baseCubeModel:      rl.Model,
-	terrainModel:       rl.Model,
-	pointModel:         rl.Model,
-	cat:                rl.Model,
-	can_unopened:       rl.Model,
-	can_opened:         rl.Model,
-	can_nails:          rl.Model,
-	can_strips:         rl.Model,
-	can_flat:           rl.Model,
-	can_reinforced:     rl.Model,
-	can_ring:           rl.Model,
-	can_rotator:        rl.Model,
-	can_motor:          rl.Model,
-	can_helm:           rl.Model,
-	can_rutter:         rl.Model,
-	can_propeller:      rl.Model,
-	construction_model: rl.Model,
-	assembly_model:     rl.Model,
-	island_model:       rl.Model,
+	s_island_model:            rl.Model,
+	s_island_sand_outer_model: rl.Model,
+	s_island_sand_inner_model: rl.Model,
+	m_island_model:            rl.Model,
+	m_island_sand_outer_model: rl.Model,
+	m_island_sand_inner_model: rl.Model,
+	cubeModel:                 rl.Model,
+	rectangleModel:            rl.Model,
+	boatModel:                 rl.Model,
+	waterModel:                rl.Model,
+	skyModel:                  rl.Model,
+	waterShader:               rl.Shader,
+	skyShader:                 rl.Shader,
+	groundQuad:                GroundQuad,
+	baseCubeModel:             rl.Model,
+	terrainModel:              rl.Model,
+	pointModel:                rl.Model,
+	cat:                       rl.Model,
+	can_unopened:              rl.Model,
+	can_opened:                rl.Model,
+	can_nails:                 rl.Model,
+	can_strips:                rl.Model,
+	can_flat:                  rl.Model,
+	can_reinforced:            rl.Model,
+	can_ring:                  rl.Model,
+	can_rotator:               rl.Model,
+	can_motor:                 rl.Model,
+	can_helm:                  rl.Model,
+	can_rutter:                rl.Model,
+	can_propeller:             rl.Model,
+	construction_model:        rl.Model,
+	assembly_model:            rl.Model,
+	island_model:              rl.Model,
 }
 
 AllRecipes :: struct {
@@ -557,7 +559,7 @@ handle_placing_mode :: proc() {
 				type            = g.current_placing_info.modelType,
 				color           = rl.WHITE,
 				original_color  = rl.WHITE,
-				highlight_color = rl.RAYWHITE,
+				highlight_color = rl.RED,
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
 				),
@@ -918,6 +920,45 @@ draw_editing_layer :: proc(three_dee: ThreeDeeEntity) {
 	rl.DrawLine3D(three_dee.position, three_dee.position + yvector, rl.YELLOW)
 }
 
+Island_Size :: enum {
+	Small,
+	Medium,
+}
+
+draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
+	switch island_size {
+	case .Small:
+		rl.DrawModel(
+			g.allResources.s_island_sand_outer_model,
+			position - rl.Vector3{0., 1., 0.},
+			1.,
+			rl.BEIGE,
+		)
+		rl.DrawModel(
+			g.allResources.s_island_sand_inner_model,
+			position - rl.Vector3{0., 0.5, 0.},
+			1.,
+			rl.BEIGE,
+		)
+		rl.DrawModel(g.allResources.s_island_model, position, 1., rl.DARKGREEN)
+	case .Medium:
+		rl.DrawModel(
+			g.allResources.m_island_sand_outer_model,
+			position - rl.Vector3{0., 1., 0.},
+			1.,
+			rl.BEIGE,
+		)
+		rl.DrawModel(
+			g.allResources.m_island_sand_inner_model,
+			position - rl.Vector3{0., 0.5, 0.},
+			1.,
+			rl.BEIGE,
+		)
+		rl.DrawModel(g.allResources.m_island_model, position, 1., rl.DARKGREEN)
+
+	}
+}
+
 draw :: proc() {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.SKYBLUE)
@@ -930,29 +971,12 @@ draw :: proc() {
 	rlgl.EnableDepthMask()
 	rlgl.EnableDepthTest()
 	rlgl.SetBlendMode(i32(rl.BlendMode.ALPHA))
-	// rl.DrawModel(g.allResources.terrainModel, rl.Vector3(0), 1., rl.DARKGREEN)
-	// rl.DrawModel(g.allResources.terrainModel, g.terrain_position, 1., rl.WHITE)
 	rl.DrawGrid(1000, 2.)
-	// rl.DrawModelWires(g.allResources.test_model,rl.Vector3{5.,1., 5.}, 1., rl.GREEN)
-	rl.DrawModel(g.allResources.test_model_3, rl.Vector3{5., -6., 5.}, 1., rl.BEIGE)
-	rl.DrawModel(g.allResources.test_model_4, rl.Vector3{5., -5.5, 5.}, 1., rl.BEIGE)
-	rl.DrawModel(g.allResources.test_model, rl.Vector3{5., -5., 5.}, 1., rl.DARKGREEN)
-	rl.DrawModel(g.allResources.test_model_2, rl.Vector3{45., -5., 5.}, 1., rl.DARKGREEN)
+	draw_island_model(.Small, rl.Vector3{5., -5., 5.})
+	draw_island_model(.Medium, rl.Vector3{50., -5., 5.})
 
-	// rl.DrawModel(g.allResources.island_model, rl.Vector3(0), 1., rl.BROWN)
-	// for i in 0 ..< g.allResources.island_model.meshCount {
-	// 	rl.DrawBoundingBox(rl.GetMeshBoundingBox(g.allResources.island_model.meshes[i]), rl.GREEN)
-	// }
-	// rl.DrawBoundingBox(
-	// 	bounding_box_and_transform(
-	// 		rl.GetModelBoundingBox(g.allResources.island_model),
-	// 		rl.Vector3(0),
-	// 	),
-	// 	rl.GREEN,
-	// )
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., rl.WHITE)
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
-	// rl.DrawModel(g.allResources.baseCubeModel, rl.Vector3{1., 4., 1.}, 1.0, rl.WHITE)
 
 	if g.player_mode == .Placing {
 		draw_placing_object()
@@ -1059,36 +1083,24 @@ game_init :: proc() {
 	terrainMesh := rl.GenMeshPlane(10., 10., 10., 5.)
 	terrainModel := rl.LoadModelFromMesh(terrainMesh)
 
-	test_mesh := rl.GenMeshCylinder(10., 5., 9.)
-	test_model := rl.LoadModelFromMesh(test_mesh)
+	inner_radius_addition: f32 = 3.5
+	outer_radius_addition: f32 = 5.
 
-	test_mesh2 := rl.GenMeshCylinder(20., 5., 9.)
-	test_model_2 := rl.LoadModelFromMesh(test_mesh2)
+	s_radius: f32 = 10.
+	s_island_mesh := rl.GenMeshCylinder(s_radius, 5., 9.)
+	s_island_model := rl.LoadModelFromMesh(s_island_mesh)
+	s_island_sand_inner_mesh := rl.GenMeshCylinder(s_radius + inner_radius_addition, 5., 9.)
+	s_island_sand_inner_model := rl.LoadModelFromMesh(s_island_sand_inner_mesh)
+	s_island_sand_outer_mesh := rl.GenMeshCylinder(s_radius + outer_radius_addition, 5., 9.)
+	s_island_sand_outer_model := rl.LoadModelFromMesh(s_island_sand_outer_mesh)
 
-	// test_mesh_3 := rl.GenMeshHemiSphere(15., 10., 15.)
-
-	// test_mesh_3 := rl.GenMeshTorus(0.25, 16., 8, 16)
-	test_mesh_3 := rl.GenMeshCylinder(15., 5., 9.)
-	test_model_3 := rl.LoadModelFromMesh(test_mesh_3)
-
-	test_mesh_4 := rl.GenMeshCylinder(13.5, 5., 9.)
-	test_model_4 := rl.LoadModelFromMesh(test_mesh_4)
-
-	// height_vs := fmt.ctprintf("assets/shaders/%s/height_color.vs", shader_version_folder)
-	// height_fs := fmt.ctprintf("assets/shaders/%s/height_color.fs", shader_version_folder)
-	// height_shader := rl.LoadShader(height_vs, height_fs)
-	// terrainSize := rl.Vector3{500., 1., 500.}
-	// terrainPosition := rl.Vector3{(-terrainSize.x / 2.0), 0.0, (-terrainSize.z / 2.0)}
-	// mesh := rl.GenMeshHeightmap(terrainHeightMap, terrainSize)
-	// terrainModel := rl.LoadModelFromMesh(mesh)
-	// terrainModel.materials[0].shader = height_shader
-
-	// model.materials[0].maps[rl.MaterialMapIndex.ALBEDO].texture = terrainTexture
-	// terrainStruct := ThreeDeeEntity {
-	// 	mesh     = mesh,
-	// 	model    = model,
-	// 	position = rl.Vector3(0),
-	// }
+	m_radius: f32 = 20.
+	m_island_mesh := rl.GenMeshCylinder(m_radius, 5., 9.)
+	m_island_model := rl.LoadModelFromMesh(m_island_mesh)
+	m_island_sand_inner_mesh := rl.GenMeshCylinder(m_radius + inner_radius_addition, 5., 9.)
+	m_island_sand_inner_model := rl.LoadModelFromMesh(m_island_sand_inner_mesh)
+	m_island_sand_outer_mesh := rl.GenMeshCylinder(m_radius + outer_radius_addition, 5., 9.)
+	m_island_sand_outer_model := rl.LoadModelFromMesh(m_island_sand_outer_mesh)
 
 	g0 := rl.Vector3{-1000.0, 0.0, -1000.0}
 	g1 := rl.Vector3{-1000.0, 0.0, 1000.0}
@@ -1162,37 +1174,39 @@ game_init :: proc() {
 	island_model := rl.LoadModel("assets/models/island_1.glb")
 
 	resources := AllResources {
-		test_model         = test_model,
-		test_model_2       = test_model_2,
-		test_model_3       = test_model_3,
-		test_model_4       = test_model_4,
-		cubeModel          = cubeModel,
-		rectangleModel     = rectModel,
-		boatModel          = boatModel,
-		waterModel         = waterModel,
-		skyModel           = skyModel,
-		waterShader        = waterShader,
-		skyShader          = skyShader,
-		groundQuad         = ground_quad,
-		baseCubeModel      = baseCubeModel,
-		terrainModel       = terrainModel,
-		pointModel         = pointModel,
-		cat                = cat,
-		can_unopened       = unopened_can,
-		can_opened         = opened_can,
-		can_nails          = nails,
-		can_strips         = strips,
-		can_flat           = flat_can,
-		can_reinforced     = reinforced,
-		can_ring           = ring,
-		can_rotator        = rotator,
-		can_motor          = motor,
-		can_helm           = helm,
-		can_rutter         = rutter,
-		can_propeller      = propeller,
-		construction_model = construction_model,
-		assembly_model     = assembly_model,
-		island_model       = island_model,
+		s_island_model            = s_island_model,
+		m_island_model            = m_island_model,
+		s_island_sand_outer_model = s_island_sand_outer_model,
+		s_island_sand_inner_model = s_island_sand_inner_model,
+		m_island_sand_inner_model = m_island_sand_inner_model,
+		m_island_sand_outer_model = m_island_sand_outer_model,
+		cubeModel                 = cubeModel,
+		rectangleModel            = rectModel,
+		boatModel                 = boatModel,
+		waterModel                = waterModel,
+		skyModel                  = skyModel,
+		waterShader               = waterShader,
+		skyShader                 = skyShader,
+		groundQuad                = ground_quad,
+		baseCubeModel             = baseCubeModel,
+		terrainModel              = terrainModel,
+		pointModel                = pointModel,
+		cat                       = cat,
+		can_unopened              = unopened_can,
+		can_opened                = opened_can,
+		can_nails                 = nails,
+		can_strips                = strips,
+		can_flat                  = flat_can,
+		can_reinforced            = reinforced,
+		can_ring                  = ring,
+		can_rotator               = rotator,
+		can_motor                 = motor,
+		can_helm                  = helm,
+		can_rutter                = rutter,
+		can_propeller             = propeller,
+		construction_model        = construction_model,
+		assembly_model            = assembly_model,
+		island_model              = island_model,
 	}
 
 	recipes := AllRecipes {

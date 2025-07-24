@@ -3,7 +3,7 @@ package game
 import "core:fmt"
 import rl "vendor:raylib"
 
-Selected_Entity_Action_Events :: [9]Event
+Selected_Entity_Action_Events :: [8]Event
 
 Extra_UI_State :: enum {
 	None,
@@ -58,25 +58,26 @@ Delete_Building :: struct {
 	building_id: int,
 }
 
-Gui_Buttons_Rectangles: [9]rl.Rectangle = {
-	{22, 42, 50, 50},
-	{74, 42, 50, 50},
-	{126, 42, 50, 50},
-	{178, 42, 50, 50},
-	{22, 94, 50, 50},
-	{74, 94, 50, 50},
-	{126, 94, 50, 50},
-	{178, 94, 50, 50},
-	{178, 94, 50, 50},
-}
+GUI_X_SIZE :: 72
+GUI_Y_SIZE :: 50
+OFFSET_X :: 2
 
+Gui_Buttons_Rectangles: [8]rl.Rectangle = {
+	{22, 42, GUI_X_SIZE, GUI_Y_SIZE},
+	{22 + GUI_X_SIZE + OFFSET_X, 42, GUI_X_SIZE, GUI_Y_SIZE},
+	{22 + 2 * (GUI_X_SIZE + OFFSET_X), 42, GUI_X_SIZE, GUI_Y_SIZE},
+	{22 + 3 * (GUI_X_SIZE + OFFSET_X), 42, GUI_X_SIZE, GUI_Y_SIZE},
+	{22, 94, GUI_X_SIZE, GUI_Y_SIZE},
+	{22 + GUI_X_SIZE + OFFSET_X, 94, GUI_X_SIZE, GUI_Y_SIZE},
+	{22 + 2 * (GUI_X_SIZE + OFFSET_X), 94, GUI_X_SIZE, GUI_Y_SIZE},
+	{22 + 3 * (GUI_X_SIZE + OFFSET_X), 94, GUI_X_SIZE, GUI_Y_SIZE},
+}
 
 get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
-		{"Rect", Place_Object{model = ModelType.Rectangle}},
-		{"Construct", Place_Object{model = ModelType.Construct}},
-		{"Assemble", Place_Object{model = ModelType.Assemble}},
-		{"Manufacturer", Place_Object{model = ModelType.Manufacturer}},
+		{"Transformer", Place_Object{model = ModelType.Construct}},
+		{"Constructor", Place_Object{model = ModelType.Assemble}},
+		{"Assembler", Place_Object{model = ModelType.Manufacturer}},
 		{},
 		{},
 		{},
@@ -95,7 +96,6 @@ get_recipe_list :: proc() -> Selected_Entity_Action_Events {
 		{},
 		{},
 		{},
-		{},
 	}
 }
 
@@ -103,7 +103,6 @@ get_recipe_list_assembly :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
 		{"Reinforce", Recipe_Select{recipe_type = .CanReinforced}},
 		{"Rotator", Recipe_Select{recipe_type = .CanRotator}},
-		{},
 		{},
 		{},
 		{},
@@ -120,7 +119,6 @@ get_recipe_list_final :: proc() -> Selected_Entity_Action_Events {
 		{"Helm", Recipe_Select{recipe_type = .CanHelm}},
 		{"Rutter", Recipe_Select{recipe_type = .CanRutter}},
 		{"Hull", Recipe_Select{recipe_type = .CanHull}},
-		{},
 		{},
 		{},
 		{},
@@ -141,22 +139,11 @@ get_selected_entity_action_events_cube :: proc(
 		{},
 		{},
 		{},
-		{},
 	}
 }
 
 get_selected_entity_action_events_travel :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Target", Select_Target{}},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
-	}
+	return Selected_Entity_Action_Events{{"Target", Select_Target{}}, {}, {}, {}, {}, {}, {}, {}}
 }
 
 get_selected_entity_actions_events_output :: proc() -> Selected_Entity_Action_Events {
@@ -168,7 +155,6 @@ get_selected_entity_actions_events_output :: proc() -> Selected_Entity_Action_Ev
 		{"Output 5", Select_Target{output_id = 4}},
 		{"Output 6", Select_Target{output_id = 5}},
 		{"Output 7", Select_Target{output_id = 6}},
-		{"Output 8", Select_Target{output_id = 7}},
 		{"Output 8", Select_Target{output_id = 7}},
 	}
 }
@@ -222,17 +208,31 @@ handle_button :: proc() -> bool {
 	return false
 }
 
+GuiPanelSize :: enum {
+	Normal,
+	Large,
+}
+
+get_gui_panel_rectangle_position :: proc(x, y: f32) -> rl.Rectangle {
+	return rl.Rectangle{x, y, 300, 132}
+}
+
 draw_default_button_ui :: proc() {
 	rl.GuiEnable()
 	rl.GuiPanel(
-		rl.Rectangle{f32(rl.GetScreenWidth()) - 240, 20, 210, 128},
+		get_gui_panel_rectangle_position(
+			f32(rl.GetScreenWidth()) - 320,
+			f32(rl.GetScreenHeight()) - 194,
+		),
+		// rl.Rectangle{f32(rl.GetScreenWidth()) - 240, f32(rl.GetScreenHeight()) - 194, 210, 128},
 		fmt.ctprintf("Actions"),
 	)
 
 	actions := get_default_actions()
 	for i in 0 ..< len(actions) {
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
-		gui_button_rectangle.x = gui_button_rectangle.x + (f32(rl.GetScreenWidth()) - 260)
+		gui_button_rectangle.x = gui_button_rectangle.x + (f32(rl.GetScreenWidth()) - 340)
+		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 210)
 		if actions[i].Data != nil {
 			if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", actions[i].ButtonText)) {
 				g.button_event = actions[i]
@@ -241,22 +241,16 @@ draw_default_button_ui :: proc() {
 	}
 }
 
-GuiPanelSize :: enum {
-	Normal,
-	Large,
-}
-
-get_gui_panel_rectangle_position :: proc(x, y: f32) -> rl.Rectangle {
-	return rl.Rectangle{x, y, 212, 132}
-}
-
 draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Action_Events) {
-	rl.GuiPanel(get_gui_panel_rectangle_position(20, 154), fmt.ctprintf(name))
+	rl.GuiPanel(
+		get_gui_panel_rectangle_position(20, f32(rl.GetScreenHeight()) - 330),
+		fmt.ctprintf(name),
+	)
 	// rl.GuiPanel(rl.Rectangle{20, 154, 212, 132}, fmt.ctprintf(name))
 	rl.GuiEnable()
 	for i in 0 ..< len(selected_buttons) {
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
-		gui_button_rectangle.y = gui_button_rectangle.y + (138)
+		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 347)
 		if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", selected_buttons[i].ButtonText)) {
 			g.button_event = selected_buttons[i]
 		}
@@ -266,10 +260,9 @@ draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Acti
 draw_button_ui :: proc(selected: SelectedEntity) {
 	rl.GuiEnable()
 	rl.GuiPanel(
-		get_gui_panel_rectangle_position(20, 20),
+		get_gui_panel_rectangle_position(20, f32(rl.GetScreenHeight()) - 194),
 		fmt.ctprintf("%s", type_to_string(selected.type)),
 	)
-	// rl.GuiPanel(rl.Rectangle{20, 20, 212, 132}, fmt.ctprintf("%s", type_to_string(selected.type)))
 	switch g.current_extra_ui_state {
 	case .None:
 	// do nothing
@@ -295,8 +288,10 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 			rl.GuiDisable()
 			return
 		}
+		gui_button_rectangle := Gui_Buttons_Rectangles[i]
+		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 210)
 		if rl.GuiButton(
-			Gui_Buttons_Rectangles[i],
+			gui_button_rectangle,
 			fmt.ctprintf("%s", selected.selected_entity_actions[i].ButtonText),
 		) {
 			g.button_event = selected.selected_entity_actions[i]
