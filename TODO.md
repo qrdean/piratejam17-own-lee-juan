@@ -24,19 +24,19 @@ Automation constructor
 [] Collector/Research Box. To handle upgrading Ships off to somewhere else
 
 Upgrade system
-[] Need to add a system to track milestone progress and unlock different systems. (probably do this system later once we have basics working)
-[] Need a turn in spot. As we upgrade the tech to the boat tech we will need to update to more recipes
+[x] Need to add a system to track milestone progress and unlock different systems. (probably do this system later once we have basics working)
+[x] Need a turn in spot. As we upgrade the tech to the boat tech we will need to update to more recipes
 
 Display
 [] Need to display recipe requirements and time to construct per minute
 [] Clearer indication on which places a building is hooked up to currently
 [] Update entities to work off of actual building types instead of model 'shapes'
 
-[] Add Terrain Heightmap
-[] Add Water Shaders
+[x] Add Terrain Heightmap
+[x] Add Water Shaders
 [] blocking between terrain and water
 
-Add a storage box 'workers' can pull from
+[] Add a storage box 'workers' can pull from - Hook this up to a UI so we can see what we have currently and can 'put' x number of items into machines/drop off zones.
 
 Bugs
 
