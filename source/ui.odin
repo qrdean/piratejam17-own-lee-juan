@@ -1,6 +1,7 @@
 package game
 
 import "core:fmt"
+import "core:strings"
 import rl "vendor:raylib"
 
 Selected_Entity_Action_Events :: [8]Event
@@ -9,6 +10,7 @@ Extra_UI_State :: enum {
 	None,
 	Output,
 	Recipe,
+	AddRemove,
 }
 
 SelectedEntity :: struct {
@@ -28,6 +30,7 @@ ButtonActions :: union {
 	Select_Target,
 	Output_View,
 	Recipe_View,
+	Counter_View,
 	Recipe_Select,
 	Delete_Building,
 }
@@ -55,6 +58,9 @@ Recipe_Select :: struct {
 	recipe_type: RecipeType,
 }
 Delete_Building :: struct {
+	building_id: int,
+}
+Counter_View :: struct {
 	building_id: int,
 }
 
@@ -135,7 +141,7 @@ get_selected_entity_action_events_cube :: proc(
 		{"Output", Output_View{building_id = building_id}},
 		{"Recipe", Recipe_View{building_id = building_id}},
 		{"Delete", Delete_Building{building_id = building_id}},
-		{},
+		{"AddRemove", Counter_View{building_id = building_id}},
 		{},
 		{},
 		{},
@@ -194,6 +200,12 @@ handle_button :: proc() -> bool {
 				g.current_recipe_info.building_id = d.building_id
 			}
 			unhighlight_all_travelers()
+		case Counter_View:
+			if g.current_extra_ui_state == .AddRemove {
+				g.current_extra_ui_state = .None
+			} else {
+				g.current_extra_ui_state = .AddRemove
+			}
 		case Recipe_Select:
 			g.current_recipe_info.recipe_type = d.recipe_type
 			for i in 0 ..< len(g.travelPoints) {
@@ -268,6 +280,152 @@ draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Acti
 	}
 }
 
+Thing :: enum {
+	None,
+	Other,
+	One,
+}
+
+thing: i32
+thing2: i32
+
+draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
+	rl.GuiEnable()
+	rl.GuiPanel(
+		get_gui_panel_rectangle_position(20, f32(rl.GetScreenHeight()) - 330),
+		fmt.ctprintf(name),
+	)
+	rl.GuiSpinner(
+		rl.Rectangle{22, f32(rl.GetScreenHeight()) - 305, 120, 30},
+		"text",
+		&g.thing,
+		-250,
+		250,
+		true,
+	)
+
+	// Clamp values
+	if g.thing > 250 {
+		g.thing = 250
+	} else if g.thing < 0 {
+		g.thing = 0
+	}
+
+	input_key_map := make(map[i32]ItemType)
+	output_key_map := make(map[i32]ItemType)
+	input: i32 = 0
+	output: i32 = 0
+	defer delete(input_key_map)
+	defer delete(output_key_map)
+	b := strings.builder_make(context.temp_allocator)
+	c := strings.builder_make(context.temp_allocator)
+	for key in get_recipe_from_memory(g.travelPoints[selected.id].recipe_type).input_map {
+		input_key_map[input] = key
+		if input == 0 {
+			fmt.sbprintf(&b, "%s", item_type_to_string(key))
+		} else {
+			fmt.sbprintf(&b, ";%s", item_type_to_string(key))
+		}
+		input += 1
+	}
+	for key in get_recipe_from_memory(g.travelPoints[selected.id].recipe_type).output_map {
+		output_key_map[output] = key
+		if output == 0 {
+			fmt.sbprintf(&c, "%s", item_type_to_string(key))
+		} else {
+			fmt.sbprintf(&c, ";%s", item_type_to_string(key))
+		}
+		output += 1
+	}
+	if rl.GuiButton(rl.Rectangle{22, f32(rl.GetScreenHeight()) - 270, 50, 30}, "Give") {
+		// Take from Inventory put into machine
+		if g.thing != 0 {
+			if thing == 0 {
+				// input
+				item_type := input_key_map[thing2]
+				if item_type != .None {
+					fmt.println(item_type)
+					amount_received := remove_from_inventory(item_type, g.thing)
+					if !add_qty_to_input_by_type(&g.travelPoints[selected.id], item_type, g.thing) {
+          	add_to_inventory(item_type, amount_received)	
+					}
+				}
+			} else {
+				// ouput
+				item_type := output_key_map[thing2]
+				if item_type != .None {
+					fmt.println(item_type)
+					amount_received := remove_from_inventory(item_type, g.thing)
+					if !add_qty_to_output_by_type(&g.travelPoints[selected.id], item_type, g.thing) {
+						add_to_inventory(item_type, amount_received)
+					}
+				}
+			}
+		}
+		// reset values
+		g.thing = 0
+	}
+	if rl.GuiButton(
+		rl.Rectangle{22 + GUI_X_SIZE + 2, f32(rl.GetScreenHeight()) - 270, 50, 30},
+		"Take",
+	) {
+		// Take from Machine put into Inventory
+		if g.thing != 0 {
+			fmt.println(g.thing)
+			if thing == 0 {
+				// input
+				fmt.println(thing2)
+				item_type := input_key_map[thing2]
+				if item_type != .None {
+					fmt.println(item_type)
+					amount_received := remove_qty_from_input_item_type(
+						&g.travelPoints[selected.id],
+						item_type,
+						g.thing,
+					)
+					add_to_inventory(item_type, amount_received)
+					g.thing = 0
+				}
+			} else {
+				// ouput
+				fmt.println(thing2)
+				item_type := output_key_map[thing2]
+				if item_type != .None {
+					fmt.println(item_type)
+					amount_received := remove_qty_from_output(
+						&g.travelPoints[selected.id],
+						item_type,
+						g.thing,
+					)
+					add_to_inventory(item_type, amount_received)
+					g.thing = 0
+				}
+			}
+		}
+		// reset values
+	}
+	rl.GuiComboBox(
+		rl.Rectangle{22, f32(rl.GetScreenHeight()) - 235, 125, 30},
+		"Input;Output",
+		&thing,
+	)
+	if thing == 0 {
+		res, _ := strings.to_cstring(&b)
+		rl.GuiComboBox(
+			rl.Rectangle{22 + 130, f32(rl.GetScreenHeight()) - 235, 125, 30},
+			res,
+			&thing2,
+		)
+	} else {
+		res, _ := strings.to_cstring(&c)
+		rl.GuiComboBox(
+			rl.Rectangle{22 + 130, f32(rl.GetScreenHeight()) - 235, 125, 30},
+			res,
+			&thing2,
+		)
+	}
+}
+
 draw_button_ui :: proc(selected: SelectedEntity) {
 	if selected.type == .None {
 		return
@@ -295,6 +453,8 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 		case:
 			draw_extra_ui_layer("Recipes", get_recipe_list())
 		}
+	case .AddRemove:
+		draw_counter_ui("Add & Remove", selected)
 	}
 
 	for i in 0 ..< len(selected.selected_entity_actions) {
@@ -340,4 +500,3 @@ draw_entity_info_ui :: proc(selected: SelectedEntity) {
 		false,
 	)
 }
-

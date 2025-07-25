@@ -305,6 +305,20 @@ check_item_input_to_recipe :: proc(item_map: map[ItemType]i32, recipe: Recipe) -
 	return true
 }
 
+check_single_item_input_to_recipe :: proc(key: ItemType, recipe: Recipe) -> bool {
+	if recipe.input_map[key] > 0 {
+		return true
+	}
+	return false
+}
+
+check_single_item_output_to_recipe :: proc(key: ItemType, recipe: Recipe) -> bool {
+	if recipe.output_map[key] > 0 {
+		return true
+	}
+	return false
+}
+
 get_item_map_text :: proc(item_map: map[ItemType]i32) -> string {
 	b := strings.builder_make(context.temp_allocator)
 	for key in item_map {
@@ -319,8 +333,6 @@ get_item_map_with_two_maps_text :: proc(
 ) -> string {
 	b := strings.builder_make(context.temp_allocator)
 	for key in item_map_2 {
-		fmt.println(item_map)
-		fmt.println(item_map_2)
 		fmt.sbprintf(&b, "%s: %d/%d ", item_type_to_string(key), item_map[key], item_map_2[key])
 	}
 	return strings.to_string(b)

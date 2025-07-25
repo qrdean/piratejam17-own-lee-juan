@@ -65,6 +65,7 @@ Game_Memory :: struct {
 	debug_info:             DebugInfo,
 	terrain_position:       rl.Vector3,
 	turn_in_building_id:    int,
+	thing:                  i32,
 }
 
 g: ^Game_Memory
@@ -776,6 +777,23 @@ unhighlight_all_travelers :: proc() {
 	for i in 0 ..< len(g.travel) {
 		g.travel[i].selected = false
 	}
+}
+
+remove_from_inventory :: proc(key: ItemType, qty: i32) -> i32 {
+	if g.item_pickup[key] <= 0 {
+		return 0
+	}
+	if g.item_pickup[key] < qty {
+		amount := g.item_pickup[key]
+		g.item_pickup[key] = 0
+		return amount
+	}
+	g.item_pickup[key] -= qty
+	return qty
+}
+
+add_to_inventory :: proc(item_type: ItemType, qty: i32) {
+	g.item_pickup[item_type] += qty
 }
 
 update :: proc() {

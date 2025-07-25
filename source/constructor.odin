@@ -16,6 +16,50 @@ remove_qty_from_input :: proc(item_map: ^map[ItemType]i32, recipe: Recipe) {
 	}
 }
 
+add_qty_to_input_by_type :: proc(constructor: ^Constructor, key: ItemType, qty: i32) -> bool {
+	recipe := get_recipe_from_memory(constructor.recipe_type)
+	if check_single_item_input_to_recipe(key, recipe) {
+		constructor.current_inputs[key] += qty
+		return true
+	}
+	return false
+}
+
+add_qty_to_output_by_type :: proc(constructor: ^Constructor, key: ItemType, qty: i32) -> bool {
+	recipe := get_recipe_from_memory(constructor.recipe_type)
+	if check_single_item_output_to_recipe(key, recipe) {
+		constructor.current_outputs[key] += qty
+		return true
+	}
+	return false
+}
+
+remove_qty_from_output :: proc(constructor: ^Constructor, key: ItemType, qty: i32) -> i32 {
+	if constructor.current_outputs[key] <= 0 {
+		return 0
+	}
+	if constructor.current_outputs[key] < qty {
+		amount := constructor.current_outputs[key]
+		constructor.current_outputs[key] = 0
+		return amount
+	}
+	constructor.current_outputs[key] -= qty
+	return qty
+}
+
+remove_qty_from_input_item_type :: proc(constructor: ^Constructor, key: ItemType, qty: i32) -> i32 {
+	if constructor.current_inputs[key] <= 0 {
+		return 0
+	}
+	if constructor.current_inputs[key] < qty {
+		amount := constructor.current_inputs[key]
+		constructor.current_inputs[key] = 0
+		return amount
+	}
+	constructor.current_inputs[key] -= qty
+	return qty
+}
+
 add_qty_to_output :: proc(constructor: ^Constructor, recipe: Recipe) {
 	for key in recipe.output_map {
 		constructor.current_outputs[key] += recipe.output_map[key]
@@ -73,7 +117,6 @@ get_current_construction_time :: proc(constructor: Constructor) -> f32 {
 		return 0.
 	}
 }
-
 
 delete_factory_from_world :: proc(building_id: int) {
 	if len(g.travelPoints) < building_id {
