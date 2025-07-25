@@ -80,55 +80,74 @@ Gui_Buttons_Rectangles: [8]rl.Rectangle = {
 }
 
 get_default_actions :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Transformer", Place_Object{model = ModelType.Construct}},
-		{"Constructor", Place_Object{model = ModelType.Assemble}},
-		{"Assembler", Place_Object{model = ModelType.Manufacturer}},
-		{},
-		{},
-		{},
-		{},
-		{},
+	transformer := Event{"Transformer", Place_Object{model = ModelType.Construct}}
+	constructor := Event{"Constructor", Place_Object{model = ModelType.Assemble}}
+	assembler := Event{"Assembler", Place_Object{model = ModelType.Manufacturer}}
+	switch g.turn_in_info.goal_type {
+	case .Done:
+	case .TierOne:
+		constructor = Event{}
+		assembler = Event{}
+	case .TierTwo:
+		assembler = Event{}
 	}
+	return Selected_Entity_Action_Events{transformer, constructor, assembler, {}, {}, {}, {}, {}}
 }
 
 get_recipe_list :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Opened", Recipe_Select{recipe_type = .CanOpened}},
-		{"Flat", Recipe_Select{recipe_type = .CanFlat}},
-		{"Strips", Recipe_Select{recipe_type = .CanStrips}},
-		{"Nails", Recipe_Select{recipe_type = .CanNails}},
-		{"Rings", Recipe_Select{recipe_type = .CanRing}},
-		{},
-		{},
-		{},
+	opened := Event{"Opened", Recipe_Select{recipe_type = .CanOpened}}
+	flat := Event{"Flat", Recipe_Select{recipe_type = .CanFlat}}
+	strips := Event{"Strips", Recipe_Select{recipe_type = .CanStrips}}
+	nails := Event{"Nails", Recipe_Select{recipe_type = .CanNails}}
+	rings := Event{"Rings", Recipe_Select{recipe_type = .CanRing}}
+	switch g.turn_in_info.goal_type {
+	case .Done:
+	case .TierOne:
+		nails = Event{}
+		rings = Event{}
+	case .TierTwo:
+		nails = Event{}
+		rings = Event{}
 	}
+	return Selected_Entity_Action_Events{opened, flat, strips, nails, rings, {}, {}, {}}
 }
 
 get_recipe_list_assembly :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Reinforce", Recipe_Select{recipe_type = .CanReinforced}},
-		{"Rotator", Recipe_Select{recipe_type = .CanRotator}},
-		{},
-		{},
-		{},
-		{},
-		{},
-		{},
+	reinforce := Event{"Reinforce", Recipe_Select{recipe_type = .CanReinforced}}
+	rotator := Event{"Rotator", Recipe_Select{recipe_type = .CanRotator}}
+	switch g.turn_in_info.goal_type {
+	case .Done:
+	case .TierOne:
+		reinforce = Event{}
+		rotator = Event{}
+	case .TierTwo:
+		reinforce = Event{}
 	}
+	return Selected_Entity_Action_Events{reinforce, rotator, {}, {}, {}, {}, {}, {}}
 }
 
 get_recipe_list_final :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Motor", Recipe_Select{recipe_type = .CanMotor}},
-		{"Propellor", Recipe_Select{recipe_type = .CanPropeller}},
-		{"Helm", Recipe_Select{recipe_type = .CanHelm}},
-		{"Rutter", Recipe_Select{recipe_type = .CanRutter}},
-		{"Hull", Recipe_Select{recipe_type = .CanHull}},
-		{},
-		{},
-		{},
+	motor := Event{"Motor", Recipe_Select{recipe_type = .CanMotor}}
+	propellor := Event{"Propellor", Recipe_Select{recipe_type = .CanPropeller}}
+	helm := Event{"Helm", Recipe_Select{recipe_type = .CanHelm}}
+	rudder := Event{"Rutter", Recipe_Select{recipe_type = .CanRutter}}
+	hull := Event{"Hull", Recipe_Select{recipe_type = .CanHull}}
+	switch g.turn_in_info.goal_type {
+	case .Done:
+	case .TierOne:
+		motor = Event{}
+		propellor = Event{}
+		helm = Event{}
+		rudder = Event{}
+		hull = Event{}
+	case .TierTwo:
+		motor = Event{}
+		propellor = Event{}
+		helm = Event{}
+		rudder = Event{}
+		hull = Event{}
 	}
+	return Selected_Entity_Action_Events{motor, propellor, helm, rudder, hull, {}, {}, {}}
 }
 
 get_selected_entity_action_events_cube :: proc(

@@ -16,12 +16,10 @@ Automation constructor
 [x] Delete Structures - needs more testing but basics seem to function
 [x] Colors for recipes? This might need to be shader based? Or maybe I can change the albdeo of the material like in Godot? Testing is needed
 [x] Start worker at 'origin' building 
-[] Disable Output Targeting button based on number of current workers e.g. 0 workers enable button 1. 1 workers enable button 2 and so on.
-[] ability to balance the inputs into other similar inputs
+[x] ability to balance the outputs
+[] Handle Upgrade tree for unlocking Recipes and buildings
 [] Add a fuel/electricity component with fuel
 [] Think about ability to limit constructor output lines based on recipe,right now hardcoded to 8
-[] Add ability to let workers go from a spot
-[] Collector/Research Box. To handle upgrading Ships off to somewhere else
 [] Need a transport system to get across the water
 
 Upgrade system

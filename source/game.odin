@@ -182,6 +182,7 @@ FactoryEntity :: struct {
 	using ThreeDeeEntity: ThreeDeeEntity,
 	using Constructor:    Constructor,
 	output_workers:       [9]Worker,
+	current_pick_worker:  int,
 	worker_count:         int,
 	factory_type:         FactoryType,
 }
@@ -675,33 +676,37 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 					1
 					travel_entity.current_cargo.ItemType = .None
 				}
-			} else {
-				// FIXME: Need to refactor the finding code and destination code to be a bit more generic. 
-				// Currently assumption is buildings know their assigned destinations but actual traveler has no idea
-				// find next target
-				// for i in 0 ..< len(g.travelPoints) {
-				// 	factory := g.travelPoints[i]
-				// 	if i != workers.destination_id {
-				// 		recipe := get_recipe_from_memory(factory.recipe_type)
-				// 		if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
-				// 			travel_entity.current_target_id = i
-				// 			break
-				// 		}
-				// 	}
-				// }
 			}
 			// Next target
 			travel_entity.current_target_id = workers.origin_id
 		} else {
 			// Handle pick up
 			if travel_entity.current_cargo.ItemType == .None {
-				factory := g.travelPoints[travel_entity.current_target_id]
-				for key in factory.current_outputs {
-					if g.travelPoints[travel_entity.current_target_id].current_outputs[key] > 0 {
-						g.travelPoints[travel_entity.current_target_id].current_outputs[key] -= 1
-						travel_entity.current_cargo.ItemType = key
-						travel_entity.current_cargo.position_offset = rl.Vector3{0., 1., 0.}
-						travel_entity.current_cargo.color = rl.WHITE
+				has_less_than_5 := false
+				for key in g.travelPoints[travel_entity.building_id].current_outputs {
+					if g.travelPoints[travel_entity.building_id].current_outputs[key] < 5 {
+						has_less_than_5 = true
+						break
+					}
+				}
+				if travel_entity.worker_id ==
+					   g.travelPoints[travel_entity.current_target_id].current_pick_worker ||
+				   !has_less_than_5 {
+					factory := g.travelPoints[travel_entity.current_target_id]
+					for key in factory.current_outputs {
+						if g.travelPoints[travel_entity.current_target_id].current_outputs[key] >
+						   0 {
+							g.travelPoints[travel_entity.current_target_id].current_outputs[key] -=
+							1
+							travel_entity.current_cargo.ItemType = key
+							travel_entity.current_cargo.position_offset = rl.Vector3{0., 1., 0.}
+							travel_entity.current_cargo.color = rl.WHITE
+						}
+					}
+					g.travelPoints[travel_entity.building_id].current_pick_worker += 1
+					if g.travelPoints[travel_entity.building_id].current_pick_worker >
+					   g.travelPoints[travel_entity.building_id].worker_count - 1 {
+						g.travelPoints[travel_entity.building_id].current_pick_worker = 0
 					}
 				}
 			}
