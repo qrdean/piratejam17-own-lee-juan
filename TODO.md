@@ -22,15 +22,16 @@ Automation constructor
 [] Think about ability to limit constructor output lines based on recipe,right now hardcoded to 8
 [] Add ability to let workers go from a spot
 [] Collector/Research Box. To handle upgrading Ships off to somewhere else
+[] Need a transport system to get across the water
 
 Upgrade system
 [x] Need to add a system to track milestone progress and unlock different systems. (probably do this system later once we have basics working)
 [x] Need a turn in spot. As we upgrade the tech to the boat tech we will need to update to more recipes
 
 Display
-[] Need to display recipe requirements and time to construct per minute
+[x] Need to display recipe requirements and time to construct per minute
 [] Clearer indication on which places a building is hooked up to currently
-[] Update entities to work off of actual building types instead of model 'shapes'
+[x] Update entities to work off of actual building types instead of model 'shapes'
 
 [x] Add Terrain Heightmap
 [x] Add Water Shaders

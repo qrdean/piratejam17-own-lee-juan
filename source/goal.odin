@@ -1,5 +1,7 @@
 package game
 
+import "core:fmt"
+
 
 GoalType :: enum {
 	TierOne,
@@ -59,6 +61,7 @@ calculate_goals :: proc(constructor: Constructor, goal_type: GoalType) -> bool {
 			return false
 		}
 	}
+	fmt.println("hey")
 	return true
 }
 

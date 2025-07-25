@@ -2,65 +2,6 @@ package game
 
 import "core:fmt"
 
-test_constructor_scenario_1 :: proc() {
-	recipe := get_recipe(.CanFlat)
-	defer delete(recipe.input_map)
-	defer delete(recipe.output_map)
-	fmt.println(recipe)
-	constructor := Constructor {
-		recipe_type = .CanFlat,
-	}
-	defer delete(constructor.current_inputs)
-	defer delete(constructor.current_outputs)
-	constructor.current_inputs[.CanFlat] = 3
-	constructor.current_outputs[.CanOpened] = 0
-	fmt.println(constructor.current_outputs)
-	fmt.println(constructor.current_inputs)
-	transform_constructor_item(&constructor)
-	fmt.println(constructor.current_inputs)
-	fmt.println(constructor.current_outputs)
-}
-
-test_constructor_scenario_2 :: proc() {
-	recipe := get_recipe(.CanReinforced)
-	defer delete(recipe.input_map)
-	defer delete(recipe.output_map)
-	fmt.println(recipe)
-	constructor := Constructor {
-		recipe_type = .CanReinforced,
-	}
-	defer delete(constructor.current_inputs)
-	defer delete(constructor.current_outputs)
-	constructor.current_inputs[.CanFlat] = 12
-	constructor.current_inputs[.CanNails] = 24
-	constructor.current_outputs[.CanReinforced] = 0
-	fmt.println(constructor.current_outputs)
-	fmt.println(constructor.current_inputs)
-	transform_constructor_item(&constructor)
-	fmt.println(constructor.current_inputs)
-	fmt.println(constructor.current_outputs)
-}
-
-test_constructor_scenario_3 :: proc() {
-	recipe := get_recipe(.CanMotor)
-	defer delete(recipe.input_map)
-	defer delete(recipe.output_map)
-	fmt.println(recipe)
-	constructor := Constructor {
-		recipe_type = .CanMotor,
-	}
-	defer delete(constructor.current_inputs)
-	defer delete(constructor.current_outputs)
-	constructor.current_inputs[.CanReinforced] = 4
-	constructor.current_inputs[.CanRotator] = 2
-	constructor.current_outputs[.CanMotor] = 0
-	fmt.println(constructor.current_outputs)
-	fmt.println(constructor.current_inputs)
-	transform_constructor_item(&constructor)
-	fmt.println(constructor.current_inputs)
-	fmt.println(constructor.current_outputs)
-}
-
 // test_item_check :: proc() {
 // 	grass_recipe := get_recipe(.Grass)
 // 	concrete_recipe := get_recipe(.Concrete)

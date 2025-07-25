@@ -38,12 +38,9 @@ handle_construction_time :: proc(constructor: ^Constructor, dt: f32) {
 	constructor.current_construct_time += dt
 }
 
-transform_constructor_item :: proc(constructor: ^Constructor) {
-	recipe := get_recipe_from_memory(constructor.recipe_type)
-	if check_item_input_to_recipe(constructor.current_inputs, recipe) {
-		remove_qty_from_input(&constructor.current_inputs, recipe)
-		add_qty_to_output(constructor, recipe)
-	}
+transform_constructor_item :: proc(constructor: ^Constructor, recipe: Recipe) {
+	remove_qty_from_input(&constructor.current_inputs, recipe)
+	add_qty_to_output(constructor, recipe)
 }
 
 // Will move items out of machine into global storage
@@ -65,6 +62,18 @@ set_constructor_recipe :: proc(constructor: ^Constructor, recipe_type: RecipeTyp
 		constructor.current_outputs[key] = 0
 	}
 }
+
+get_current_construction_time :: proc(constructor: Constructor) -> f32 {
+	if get_recipe_from_memory(constructor.recipe_type).construct_time > 0 {
+		return(
+			constructor.current_construct_time /
+			get_recipe_from_memory(constructor.recipe_type).construct_time \
+		)
+	} else {
+		return 0.
+	}
+}
+
 
 delete_factory_from_world :: proc(building_id: int) {
 	if len(g.travelPoints) < building_id {
@@ -98,16 +107,14 @@ delete_factory_from_world :: proc(building_id: int) {
 	g.selected = {}
 	clean_up_constructor(&g.travelPoints[building_id])
 	g.travelPoints[building_id] = {}
+	// Build new array
+	new_travel_array: [dynamic]TravelEntity
 	for i in 0 ..< len(g.travel) {
-		if !g.travel[i].active {
-			g.travel[i] = {}
-			for (len(g.travel) > 0) && !g.travel[len(g.travel)-1].active {
-      	pop(&g.travel)
-			}
-			if len(g.travel) > 0 {
-				unordered_remove(&g.travel, i)
-			}
+		if g.travel[i].active {
+			append(&new_travel_array, g.travel[i])
 		}
 	}
+	old_array := g.travel
+	g.travel = new_travel_array
+	delete(old_array)
 }
-

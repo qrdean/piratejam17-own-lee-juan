@@ -54,6 +54,7 @@ Game_Memory :: struct {
 	waterPos:               rl.Vector3,
 	button_event:           Event,
 	player_mode:            PlayerMode,
+	show_inventory:         bool,
 	selected:               SelectedEntity,
 	current_collision_info: RayCollisionInfo,
 	current_placing_info:   Placing_Info,
@@ -63,6 +64,7 @@ Game_Memory :: struct {
 	item_pickup:            map[ItemType]i32,
 	debug_info:             DebugInfo,
 	terrain_position:       rl.Vector3,
+	turn_in_building_id:    int,
 }
 
 g: ^Game_Memory
@@ -205,8 +207,7 @@ TravelEntity :: struct {
 }
 
 TurnInPoint :: struct {
-	goal_type:         GoalType,
-	current_count_map: map[ItemType]i32,
+	goal_type: GoalType,
 }
 
 GroundQuad :: struct {
@@ -813,7 +814,7 @@ update :: proc() {
 		if !g.travelPoints[i].active {continue}
 		if g.travelPoints[i].factory_type == .TurnIn {
 			if calculate_goals(g.travelPoints[i], g.turn_in_info.goal_type) {
-				clear(&g.turn_in_info.current_count_map)
+				// clear(&g.turn_in_info.current_count_map)
 				g.turn_in_info.goal_type = get_next_goal(g.turn_in_info.goal_type)
 			}
 		} else {
@@ -827,9 +828,12 @@ update :: proc() {
 				g.travelPoints[i].current_construct_time = 0
 				continue
 			}
-			g.travelPoints[i].current_construct_time += rl.GetFrameTime()
+			recipe := get_recipe_from_memory(g.travelPoints[i].recipe_type)
+			if check_item_input_to_recipe(g.travelPoints[i].current_inputs, recipe) {
+				g.travelPoints[i].current_construct_time += rl.GetFrameTime()
+			}
 			if check_construction_time(g.travelPoints[i]) {
-				transform_constructor_item(&g.travelPoints[i])
+				transform_constructor_item(&g.travelPoints[i], recipe)
 				g.travelPoints[i].current_construct_time = 0
 			}
 		}
@@ -844,6 +848,10 @@ update :: proc() {
 		}
 
 		if g.player_mode == .Viewing {rl.DisableCursor()} else {rl.EnableCursor()}
+	}
+
+	if rl.IsKeyPressed(.I) {
+		g.show_inventory = !g.show_inventory
 	}
 
 	if rl.IsKeyPressed(.P) {
@@ -874,6 +882,13 @@ draw_debug_info :: proc(debug_info: []cstring) {
 		rl.DrawText(info, 5, auto_cast text_spacing, 8., rl.DARKGRAY)
 		text_spacing += 11
 	}
+}
+
+draw_construction_time :: proc(x, y: i32) {
+	travel_point_info := g.travelPoints[g.selected.id]
+	construction_time_percent := get_current_construction_time(travel_point_info)
+	rl.DrawRectangle(x, y, 100., 20, rl.LIGHTGRAY)
+	rl.DrawRectangle(x, y, i32(100. * construction_time_percent), 20, rl.ORANGE)
 }
 
 draw_placing_object :: proc() {
@@ -1022,23 +1037,40 @@ draw :: proc() {
 	}
 
 	debug_info := []cstring {
-		fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
-		fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
-		fmt.ctprintf("Player Mode %v\n", g.player_mode),
-		fmt.ctprintf("Output: %v\n", get_item_map_text(travel_point_info.current_outputs)),
-		fmt.ctprintf("Input: %v\n", get_item_map_text(travel_point_info.current_inputs)),
-		fmt.ctprintf("Recipe: %v\n", travel_point_info.recipe_type),
+		// fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
+		// fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
+		// fmt.ctprintf("Player Mode %v\n", g.player_mode),
 		fmt.ctprintf(
-			"Current Goal %v\n",
-			get_item_map_text(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
+			"Current Goal\n%v\n",
+			get_item_map_with_two_maps_text(
+				g.travelPoints[g.turn_in_building_id].current_inputs,
+				(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
+			),
 		),
+		// fmt.ctprintf("\nInventory\n%v\n", get_item_map_text_new_line(g.item_pickup)),
 	}
- 	rl.DrawRectangle(3, 0, 122, 1, rl.GRAY)
+	if g.show_inventory {
+		debug_info = []cstring {
+			fmt.ctprintf(
+				"Current Goal\n%v\n",
+				get_item_map_with_two_maps_text(
+					g.travelPoints[g.turn_in_building_id].current_inputs,
+					(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
+				),
+			),
+			fmt.ctprintf("\nInventory\n%v\n", get_item_map_text_new_line(g.item_pickup)),
+		}
+	}
+	rl.DrawRectangle(3, 0, 122, 1, rl.GRAY)
 	rl.DrawRectangle(4, 1, 120, 3, rl.LIGHTGRAY)
 	rl.DrawRectangle(3, 1, 1, 83, rl.LIGHTGRAY)
 	rl.DrawRectangle(3, 83, 122, 2, rl.LIGHTGRAY)
 	rl.DrawRectangle(124, 1, 1, 83, rl.LIGHTGRAY)
-	rl.DrawRectangle(4, 4, 120, 80, rl.RAYWHITE)
+	if g.show_inventory {
+		rl.DrawRectangle(4, 4, 120, 180, rl.RAYWHITE)
+	} else {
+		rl.DrawRectangle(4, 4, 120, 80, rl.RAYWHITE)
+	}
 	draw_debug_info(debug_info)
 	rl.EndMode2D()
 
@@ -1239,6 +1271,10 @@ game_init :: proc() {
 		tier_two = get_goal(.TierTwo),
 	}
 
+	turn_in_info := TurnInPoint {
+		goal_type = .TierOne,
+	}
+
 	g^ = Game_Memory {
 		run          = true,
 		some_number  = 100,
@@ -1248,9 +1284,8 @@ game_init :: proc() {
 		all_goals    = goals,
 		player_mode  = PlayerMode.Viewing,
 		debug_info   = DebugInfo{},
+		turn_in_info = turn_in_info,
 	}
-
-	// g.terrain_position = terrainPosition
 
 	for i in 0 ..< 3 {
 		if (i % 2 == 0) {
@@ -1305,6 +1340,8 @@ game_init :: proc() {
 		active          = true,
 		factory_type    = .TurnIn,
 	}
+	goal_id := len(g.travelPoints)
+	g.turn_in_building_id = goal_id
 	append(&g.travelPoints, goal_entity)
 
 	game_hot_reloaded(g)

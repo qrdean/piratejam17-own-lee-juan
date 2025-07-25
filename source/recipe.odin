@@ -37,7 +37,7 @@ Item :: struct {
 item_type_to_string :: proc(item_type: ItemType) -> string {
 	switch item_type {
 	case .None:
-		return ""
+		return "None"
 	case .CanOpened:
 		return "Opened"
 	case .CanFlat:
@@ -210,36 +210,6 @@ get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 	return {}
 }
 
-// get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
-// 	switch recipe_type {
-// 	case .None:
-// 		return {}
-// 	case .Grass:
-// 		a := make(map[ItemType]i32)
-// 		a[.Gnome] = 1
-// 		b := make(map[ItemType]i32)
-// 		b[.Grass] = 1
-// construct_time := number_per_minute_to_frame_time(20.)
-// 		return {input_map = a, output_map = b, construct_time = construct_time}
-// 	case .Concrete:
-// 		a := make(map[ItemType]i32)
-// 		a[.Gnome] = 1
-// 		a[.Grass] = 1
-// 		b := make(map[ItemType]i32)
-// 		b[.Concrete] = 1
-// 		construct_time := number_per_minute_to_frame_time(2.)
-// 		return {input_map = a, output_map = b, construct_time = construct_time}
-// 	case .Gnome:
-// 		a := make(map[ItemType]i32)
-// 		b := make(map[ItemType]i32)
-// 		a[.None] = 0
-// 		b[.Gnome] = 1
-// 		construct_time := number_per_minute_to_frame_time(60.)
-// 		return {input_map = a, output_map = b, construct_time = construct_time}
-// 	}
-// 	return {}
-// }
-
 get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
 	switch recipe_type {
 	case .None:
@@ -274,6 +244,40 @@ get_recipe_from_memory :: proc(recipe_type: RecipeType) -> Recipe {
 	return {}
 }
 
+get_recipe_name :: proc(recipe_type: RecipeType) -> string {
+	switch recipe_type {
+	case .None:
+		return "Unselected"
+	case .CanOpened:
+		return "Open Can"
+	case .CanFlat:
+		return "Flat Can"
+	case .CanStrips:
+		return "Strips"
+	case .CanNails:
+		return "Nails"
+	case .CanRing:
+		return "Ring"
+	case .CanReinforced:
+		return "Reinforced Can"
+	case .CanRotator:
+		return "Rotator Can"
+	case .CanMotor:
+		return "Motor"
+	case .CanPropeller:
+		return "Propeller"
+	case .CanHull:
+		return "Hull"
+	case .CanHelm:
+		return "Helm"
+	case .CanRutter:
+		return "Rudder"
+	case .Boat:
+		return "Boat"
+	}
+	return ""
+}
+
 overwrite_recipe_time :: proc(recipe: ^Recipe, seconds: f32) {
 	recipe.construct_time = seconds_to_minute(seconds)
 }
@@ -305,6 +309,29 @@ get_item_map_text :: proc(item_map: map[ItemType]i32) -> string {
 	b := strings.builder_make(context.temp_allocator)
 	for key in item_map {
 		fmt.sbprintf(&b, "%s %d ", item_type_to_string(key), item_map[key])
+	}
+	return strings.to_string(b)
+}
+
+get_item_map_with_two_maps_text :: proc(
+	item_map: map[ItemType]i32,
+	item_map_2: map[ItemType]i32,
+) -> string {
+	b := strings.builder_make(context.temp_allocator)
+	for key in item_map_2 {
+		fmt.println(item_map)
+		fmt.println(item_map_2)
+		fmt.sbprintf(&b, "%s: %d/%d ", item_type_to_string(key), item_map[key], item_map_2[key])
+	}
+	return strings.to_string(b)
+}
+
+get_item_map_text_new_line :: proc(item_map: map[ItemType]i32) -> string {
+	b := strings.builder_make(context.temp_allocator)
+	for key in item_map {
+		if key != .None {
+			fmt.sbprintf(&b, "%s %d\n", item_type_to_string(key), item_map[key])
+		}
 	}
 	return strings.to_string(b)
 }

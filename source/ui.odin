@@ -269,6 +269,9 @@ draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Acti
 }
 
 draw_button_ui :: proc(selected: SelectedEntity) {
+	if selected.type == .None {
+		return
+	}
 	rl.GuiEnable()
 	rl.GuiPanel(
 		get_gui_panel_rectangle_position(20, f32(rl.GetScreenHeight()) - 194),
@@ -320,28 +323,21 @@ draw_entity_info_ui :: proc(selected: SelectedEntity) {
 		fmt.ctprintf("Info"),
 	)
 	travel_point_info := g.travelPoints[g.selected.id]
+	recipe := get_recipe_from_memory(travel_point_info.recipe_type)
 	a := fmt.ctprintf(
-		"recipe: %v\ninput: %v\noutput:%v\n",
-		travel_point_info.recipe_type,
+		"\nRecipe: %v\nIn: %v\nOut: %v\nCurrent\nIn: %v\nOut: %v",
+		get_recipe_name(travel_point_info.recipe_type),
+		get_item_map_text(recipe.input_map),
+		get_item_map_text(recipe.output_map),
 		get_item_map_text(travel_point_info.current_inputs),
 		get_item_map_text(travel_point_info.current_outputs),
 	)
-	// fmt.ctprintf("selected info %v\n", get_item_map_text(travel_point_info.current_inputs)),
-	// fmt.ctprintf("selected info %v\n", travel_point_info.recipe_type),
-	// rl.GuiSetStyle(
-	// 	rl.GuiControl.DEFAULT,
-	// 	i32(rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL),
-	// 	i32(rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP),
-	// )
+	draw_construction_time(520, rl.GetScreenHeight() - 166)
 	rl.GuiTextBox(
 		get_gui_panel_rectangle_position(330, f32(rl.GetScreenHeight()) - 194),
 		a,
 		1024,
 		false,
 	)
-	// rl.GuiSetStyle(
-	// 	rl.GuiControl.DEFAULT,
-	// 	i32(rl.GuiDefaultProperty.TEXT_ALIGNMENT_VERTICAL),
-	// 	i32(rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE),
-	// )
 }
+
