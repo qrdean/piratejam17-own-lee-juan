@@ -39,6 +39,12 @@ Display
 
 [x] Add a storage box 'workers' can pull from - Hook this up to a UI so we can see what we have currently and can 'put' x number of items into machines/drop off zones.
 
+Music
+Sound
+
+Title Screen
+Settings Menu
+
 Bugs
 
 ### Worker instructions
