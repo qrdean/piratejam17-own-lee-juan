@@ -280,14 +280,9 @@ draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Acti
 	}
 }
 
-Thing :: enum {
-	None,
-	Other,
-	One,
-}
-
-thing: i32
-thing2: i32
+spinner_current_val: i32
+input_output_combo_val: i32
+item_type_combo_val: i32
 
 draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 	rl.GuiEnable()
@@ -298,17 +293,17 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 	rl.GuiSpinner(
 		rl.Rectangle{22, f32(rl.GetScreenHeight()) - 305, 120, 30},
 		"text",
-		&g.thing,
+		&spinner_current_val,
 		-250,
 		250,
 		true,
 	)
 
 	// Clamp values
-	if g.thing > 250 {
-		g.thing = 250
-	} else if g.thing < 0 {
-		g.thing = 0
+	if spinner_current_val > 250 {
+		spinner_current_val = 250
+	} else if spinner_current_val < 0 {
+		spinner_current_val = 0
 	}
 
 	input_key_map := make(map[i32]ItemType)
@@ -339,66 +334,67 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 	}
 	if rl.GuiButton(rl.Rectangle{22, f32(rl.GetScreenHeight()) - 270, 50, 30}, "Give") {
 		// Take from Inventory put into machine
-		if g.thing != 0 {
-			if thing == 0 {
+		if spinner_current_val != 0 {
+			if input_output_combo_val == 0 {
 				// input
-				item_type := input_key_map[thing2]
+				item_type := input_key_map[item_type_combo_val]
 				if item_type != .None {
-					fmt.println(item_type)
-					amount_received := remove_from_inventory(item_type, g.thing)
-					if !add_qty_to_input_by_type(&g.travelPoints[selected.id], item_type, g.thing) {
-          	add_to_inventory(item_type, amount_received)	
+					amount_received := remove_from_inventory(item_type, spinner_current_val)
+					if !add_qty_to_input_by_type(
+						&g.travelPoints[selected.id],
+						item_type,
+						spinner_current_val,
+					) {
+						add_to_inventory(item_type, amount_received)
 					}
 				}
 			} else {
 				// ouput
-				item_type := output_key_map[thing2]
+				item_type := output_key_map[item_type_combo_val]
 				if item_type != .None {
-					fmt.println(item_type)
-					amount_received := remove_from_inventory(item_type, g.thing)
-					if !add_qty_to_output_by_type(&g.travelPoints[selected.id], item_type, g.thing) {
+					amount_received := remove_from_inventory(item_type, spinner_current_val)
+					if !add_qty_to_output_by_type(
+						&g.travelPoints[selected.id],
+						item_type,
+						spinner_current_val,
+					) {
 						add_to_inventory(item_type, amount_received)
 					}
 				}
 			}
 		}
 		// reset values
-		g.thing = 0
+		spinner_current_val = 0
 	}
 	if rl.GuiButton(
 		rl.Rectangle{22 + GUI_X_SIZE + 2, f32(rl.GetScreenHeight()) - 270, 50, 30},
 		"Take",
 	) {
 		// Take from Machine put into Inventory
-		if g.thing != 0 {
-			fmt.println(g.thing)
-			if thing == 0 {
+		if spinner_current_val != 0 {
+			if input_output_combo_val == 0 {
 				// input
-				fmt.println(thing2)
-				item_type := input_key_map[thing2]
+				item_type := input_key_map[item_type_combo_val]
 				if item_type != .None {
-					fmt.println(item_type)
 					amount_received := remove_qty_from_input_item_type(
 						&g.travelPoints[selected.id],
 						item_type,
-						g.thing,
+						spinner_current_val,
 					)
 					add_to_inventory(item_type, amount_received)
-					g.thing = 0
+					spinner_current_val = 0
 				}
 			} else {
 				// ouput
-				fmt.println(thing2)
-				item_type := output_key_map[thing2]
+				item_type := output_key_map[item_type_combo_val]
 				if item_type != .None {
-					fmt.println(item_type)
 					amount_received := remove_qty_from_output(
 						&g.travelPoints[selected.id],
 						item_type,
-						g.thing,
+						spinner_current_val,
 					)
 					add_to_inventory(item_type, amount_received)
-					g.thing = 0
+					spinner_current_val = 0
 				}
 			}
 		}
@@ -407,21 +403,21 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 	rl.GuiComboBox(
 		rl.Rectangle{22, f32(rl.GetScreenHeight()) - 235, 125, 30},
 		"Input;Output",
-		&thing,
+		&input_output_combo_val,
 	)
-	if thing == 0 {
+	if input_output_combo_val == 0 {
 		res, _ := strings.to_cstring(&b)
 		rl.GuiComboBox(
 			rl.Rectangle{22 + 130, f32(rl.GetScreenHeight()) - 235, 125, 30},
 			res,
-			&thing2,
+			&item_type_combo_val,
 		)
 	} else {
 		res, _ := strings.to_cstring(&c)
 		rl.GuiComboBox(
 			rl.Rectangle{22 + 130, f32(rl.GetScreenHeight()) - 235, 125, 30},
 			res,
-			&thing2,
+			&item_type_combo_val,
 		)
 	}
 }

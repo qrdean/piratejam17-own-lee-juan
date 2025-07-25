@@ -65,7 +65,6 @@ Game_Memory :: struct {
 	debug_info:             DebugInfo,
 	terrain_position:       rl.Vector3,
 	turn_in_building_id:    int,
-	thing:                  i32,
 }
 
 g: ^Game_Memory
