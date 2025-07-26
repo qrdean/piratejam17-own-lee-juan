@@ -7,7 +7,6 @@
 ~Have a transform entity that allows the user to select a recipe to transform the item into something else~
 ~Worker has an receive and dropoff building selection. Set these via the context menu and it will build a path between the two~
 
-Add Resource entity that can be built on by the canopener building. This building is free to start with but then costs 5 cans after?
 
 Automation constructor
 [x] Timer in Recipe to check for when a product is made
@@ -17,9 +16,10 @@ Automation constructor
 [x] Colors for recipes? This might need to be shader based? Or maybe I can change the albdeo of the material like in Godot? Testing is needed
 [x] Start worker at 'origin' building 
 [x] ability to balance the outputs
-[] Handle Upgrade tree for unlocking Recipes and buildings
+[x] Handle Upgrade tree for unlocking Recipes and buildings
+[x] Add Resource entity that can be built on by the canopener building. This building is free to start with but then costs 5 cans after?
+[] Make buildings cost materials to build
 [] Add a fuel/electricity component with fuel
-[] Think about ability to limit constructor output lines based on recipe,right now hardcoded to 8
 [] Need a transport system to get across the water
 
 Upgrade system
@@ -28,8 +28,8 @@ Upgrade system
 
 Display
 [x] Need to display recipe requirements and time to construct per minute
-[] Clearer indication on which places a building is hooked up to currently
 [x] Update entities to work off of actual building types instead of model 'shapes'
+[] Clearer indication on which places a building is hooked up to currently
 
 [x] Add Terrain Heightmap
 [x] Add Water Shaders

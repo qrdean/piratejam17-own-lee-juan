@@ -80,6 +80,7 @@ Gui_Buttons_Rectangles: [8]rl.Rectangle = {
 }
 
 get_default_actions :: proc() -> Selected_Entity_Action_Events {
+	miner := Event{"Miner", Place_Object{model = ModelType.Miner}}
 	transformer := Event{"Transformer", Place_Object{model = ModelType.Construct}}
 	constructor := Event{"Constructor", Place_Object{model = ModelType.Assemble}}
 	assembler := Event{"Assembler", Place_Object{model = ModelType.Manufacturer}}
@@ -91,11 +92,24 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	case .TierTwo:
 		assembler = Event{}
 	}
-	return Selected_Entity_Action_Events{transformer, constructor, assembler, {}, {}, {}, {}, {}}
+	return Selected_Entity_Action_Events {
+		miner,
+		transformer,
+		constructor,
+		assembler,
+		{},
+		{},
+		{},
+		{},
+	}
+}
+
+get_recipe_list_miner :: proc() -> Selected_Entity_Action_Events {
+	opened := Event{"Opened", Recipe_Select{recipe_type = .CanOpened}}
+	return Selected_Entity_Action_Events{opened, {}, {}, {}, {}, {}, {}, {}}
 }
 
 get_recipe_list :: proc() -> Selected_Entity_Action_Events {
-	opened := Event{"Opened", Recipe_Select{recipe_type = .CanOpened}}
 	flat := Event{"Flat", Recipe_Select{recipe_type = .CanFlat}}
 	strips := Event{"Strips", Recipe_Select{recipe_type = .CanStrips}}
 	nails := Event{"Nails", Recipe_Select{recipe_type = .CanNails}}
@@ -109,7 +123,7 @@ get_recipe_list :: proc() -> Selected_Entity_Action_Events {
 		nails = Event{}
 		rings = Event{}
 	}
-	return Selected_Entity_Action_Events{opened, flat, strips, nails, rings, {}, {}, {}}
+	return Selected_Entity_Action_Events{flat, strips, nails, rings, {}, {}, {}, {}}
 }
 
 get_recipe_list_assembly :: proc() -> Selected_Entity_Action_Events {
@@ -458,7 +472,7 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 	case .Recipe:
 		#partial switch selected.type {
 		case .Miner:
-			draw_extra_ui_layer("Recipes", get_recipe_list())
+			draw_extra_ui_layer("Recipes", get_recipe_list_miner())
 		case .Construct:
 			draw_extra_ui_layer("Recipes", get_recipe_list())
 		case .Assemble:

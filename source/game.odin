@@ -45,6 +45,8 @@ Game_Memory :: struct {
 	camera:                 rl.Camera,
 	travelPoints:           [dynamic]FactoryEntity,
 	travel:                 [dynamic]TravelEntity,
+	resourceNodes:          [dynamic]ResourceEntity,
+	islands:                [dynamic]Island_Entity,
 	turn_in_info:           TurnInPoint,
 	currentRay:             rl.Ray,
 	mouseRay:               rl.Ray,
@@ -138,6 +140,7 @@ AllResources :: struct {
 	construction_model:        rl.Model,
 	assembly_model:            rl.Model,
 	island_model:              rl.Model,
+	resource_node_model:       rl.Model,
 }
 
 AllRecipes :: struct {
@@ -207,8 +210,18 @@ TravelEntity :: struct {
 	action:               TravelEntityAction,
 }
 
+ResourceEntity :: struct {
+	using ThreeDeeEntity: ThreeDeeEntity,
+	mining_speed:         f32,
+}
+
 TurnInPoint :: struct {
 	goal_type: GoalType,
+}
+
+Island_Entity :: struct {
+	island_size: Island_Size,
+	position:    rl.Vector3,
 }
 
 GroundQuad :: struct {
@@ -242,6 +255,7 @@ ModelType :: enum {
 	CanRudder,
 	CanPropeller,
 	Island_1,
+	ResourceNode,
 }
 
 get_model :: proc(stuff: ModelType) -> rl.Model {
@@ -259,7 +273,7 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 	case .Construct:
 		return g.allResources.construction_model
 	case .Miner:
-		return g.allResources.cubeModel
+		return g.allResources.construction_model
 	case .Assemble:
 		return g.allResources.assembly_model
 	case .Manufacturer:
@@ -292,6 +306,8 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.can_propeller
 	case .Island_1:
 		return g.allResources.island_model
+	case .ResourceNode:
+		return g.allResources.resource_node_model
 	}
 	return g.allResources.cubeModel
 }
@@ -372,6 +388,8 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Propeller"
 	case .Island_1:
 		return "Island_1"
+	case .ResourceNode:
+		return "resource"
 	}
 	return "undefined"
 }
@@ -520,14 +538,31 @@ handle_editor_update :: proc() {
 
 handle_placing_mode :: proc() {
 	g.current_placing_info.collision_info = false
-	if rl.CheckCollisionBoxes(
-		rl.GetModelBoundingBox(g.allResources.terrainModel),
-		bounding_box_and_transform(
-			rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
-			g.current_collision_info.point,
-		),
-	) {
-		g.current_placing_info.collision_info = true
+	if g.current_placing_info.modelType == .Miner {
+		for i in 0 ..< len(g.resourceNodes) {
+			if rl.CheckCollisionBoxes(
+				bounding_box_and_transform(
+					rl.GetModelBoundingBox(get_model(g.resourceNodes[i].type)),
+					g.resourceNodes[i].position,
+				),
+				bounding_box_and_transform(
+					rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+					g.current_collision_info.point,
+				),
+			) {
+				g.current_placing_info.collision_info = true
+			}
+		}
+	} else {
+		if rl.CheckCollisionBoxes(
+			rl.GetModelBoundingBox(g.allResources.terrainModel),
+			bounding_box_and_transform(
+				rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+				g.current_collision_info.point,
+			),
+		) {
+			g.current_placing_info.collision_info = true
+		}
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
@@ -549,6 +584,25 @@ handle_placing_mode :: proc() {
 				active          = true,
 				recipe_type     = .None,
 				factory_type    = .Transformer,
+			}
+			append(&g.travelPoints, entity)
+		case .Miner:
+			entity := FactoryEntity {
+				position        = rl.Vector3 {
+					g.current_collision_info.point.x,
+					0.0, //TODO: calculate this based on model height
+					g.current_collision_info.point.z,
+				},
+				type            = g.current_placing_info.modelType,
+				color           = rl.WHITE,
+				original_color  = rl.WHITE,
+				highlight_color = rl.RED,
+				bb              = rl.GetModelBoundingBox(
+					get_model(g.current_placing_info.modelType),
+				),
+				active          = true,
+				recipe_type     = .CanOpened,
+				factory_type    = .Miner,
 			}
 			append(&g.travelPoints, entity)
 		case .Construct:
@@ -730,42 +784,81 @@ handle_selecting_update :: proc() {
 
 		// Check for terrain
 		origin_point := g.travelPoints[g.current_output_info.building_id].position
-		normal := rCollision.normal
-		number_of_points := int(rCollision.distance / 10.)
-		for j in 0 ..< number_of_points {
-			next_point := origin_point + (normal * f32(j))
-			down_ray := rl.Ray {
-				position  = next_point,
-				direction = rl.Vector3{0., -1., 0.},
+		// normal := rCollision.normal
+		// number_of_points := int(rCollision.distance / 10.)
+		// direction := rCollision.point - travelPoint.position
+		if rCollision.hit {
+			for island in g.islands {
+				bb := island_model_bounding_boxes(island.island_size, island.position)
+				if rl.CheckCollisionBoxes(
+					bb,
+					bounding_box_and_transform(
+						rl.GetModelBoundingBox(
+							get_model(g.travelPoints[g.current_output_info.building_id].type),
+						),
+						origin_point,
+					),
+				) {
+					position := rCollision.point
+					position = position.y * 0.01
+					if rl.CheckCollisionBoxes(
+						island_model_bounding_boxes(
+							island.island_size,
+							island.position + rl.Vector3{0., 2.0, 0.},
+						),
+						bounding_box_and_transform(
+							rl.GetModelBoundingBox(get_model(travelPoint.type)),
+							travelPoint.position,
+						),
+					) {
+						g.current_output_info.collision_info = true
+						g.current_output_info.destination_building_id = i
+					} 
+				}
 			}
-			// Going to need to make multiple of these from the heightmap maybe
-			rl.GetRayCollisionQuad(
-				down_ray,
-				g.allResources.groundQuad.g0,
-				g.allResources.groundQuad.g1,
-				g.allResources.groundQuad.g2,
-				g.allResources.groundQuad.g3,
-			)
 		}
 
+		// for j in 0 ..< number_of_points {
+		// 	next_point := origin_point + (direction * f32(j))
+		// 	down_ray := rl.Ray {
+		// 		position  = next_point,
+		// 		direction = rl.Vector3{0., -1., 0.},
+		// 	}
+		//
+		// 	for island in g.islands {
+		// 		bb := island_model_bounding_boxes(island.island_size, island.position)
+		// 		island_ground_hit := rl.GetRayCollisionBox(down_ray, bb)
+		// 		fmt.printf("hitting: %v on %v", island_ground_hit.hit, island)
+		// 		// if !island_ground_hit.hit {
+		// 		// 	can_build = false
+		// 		// 	break
+		// 		// }
+		// 	}
+		// 	// Going to need to make multiple of these from the heightmap maybe
+		// 	rl.GetRayCollisionQuad(
+		// 		down_ray,
+		// 		g.allResources.groundQuad.g0,
+		// 		g.allResources.groundQuad.g1,
+		// 		g.allResources.groundQuad.g2,
+		// 		g.allResources.groundQuad.g3,
+		// 	)
+		// 	// fmt.println(we_hit.hit)
+		// }
+
 		if rCollision.hit {
-			g.current_output_info.collision_info = true
-			g.current_output_info.destination_building_id = i
 		}
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
 		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
 		for i in 0 ..< len(g.travelPoints) {
-			travelPoint := g.travelPoints[i]
-			rCollision := handle_collisions_three_dee(travelPoint)
-			if rCollision.hit {
+			if g.current_output_info.collision_info {
 				g.player_mode = .Viewing
 				g.current_extra_ui_state = .None
 				rl.DisableCursor()
 				g.travelPoints[i].color = g.travelPoints[i].original_color
 				g.travelPoints[g.current_output_info.building_id].output_workers[g.current_output_info.output_id].destination_id =
-					i
+					g.current_output_info.destination_building_id
 			}
 		}
 	}
@@ -963,6 +1056,26 @@ Island_Size :: enum {
 	Medium,
 }
 
+island_model_bounding_boxes :: proc(
+	island_size: Island_Size,
+	position: rl.Vector3,
+) -> rl.BoundingBox {
+	switch island_size {
+	case .Small:
+		a := bounding_box_and_transform(
+			rl.GetModelBoundingBox(g.allResources.s_island_sand_outer_model),
+			position,
+		)
+		return a
+	case .Medium:
+		return bounding_box_and_transform(
+			rl.GetModelBoundingBox(g.allResources.m_island_model),
+			position,
+		)
+	}
+	return rl.BoundingBox{}
+}
+
 draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
 	switch island_size {
 	case .Small:
@@ -1010,11 +1123,19 @@ draw :: proc() {
 	rlgl.EnableDepthTest()
 	rlgl.SetBlendMode(i32(rl.BlendMode.ALPHA))
 	rl.DrawGrid(1000, 2.)
-	draw_island_model(.Small, rl.Vector3{5., -5., 5.})
-	draw_island_model(.Medium, rl.Vector3{50., -5., 5.})
+
+	for island in g.islands {
+		draw_island_model(island.island_size, island.position)
+	}
+	// draw_island_model(.Small, rl.Vector3{5., -5., 5.})
+	// draw_island_model(.Medium, rl.Vector3{50., -5., 5.})
 
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., rl.WHITE)
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
+
+	for i in 0 ..< len(g.resourceNodes) {
+		draw_three_dee_entity(g.resourceNodes[i])
+	}
 
 	if g.player_mode == .Placing {
 		draw_placing_object()
@@ -1048,6 +1169,10 @@ draw :: proc() {
 			draw_editing_layer(g.travel[i])
 		}
 	}
+
+	// for i in 0 ..< len(g.debug_ray) {
+	// 	rl.DrawRay(g.debug_ray[i], rl.YELLOW)
+	// }
 
 	rl.EndBlendMode()
 	rl.EndMode3D()
@@ -1165,6 +1290,10 @@ game_init :: proc() {
 	m_island_sand_outer_mesh := rl.GenMeshCylinder(m_radius + outer_radius_addition, 5., 9.)
 	m_island_sand_outer_model := rl.LoadModelFromMesh(m_island_sand_outer_mesh)
 
+	islands: [dynamic]Island_Entity
+	append(&islands, Island_Entity{island_size = .Small, position = rl.Vector3{5., -5., 5.}})
+	append(&islands, Island_Entity{island_size = .Medium, position = rl.Vector3{50., -5., 5.}})
+
 	g0 := rl.Vector3{-1000.0, 0.0, -1000.0}
 	g1 := rl.Vector3{-1000.0, 0.0, 1000.0}
 	g2 := rl.Vector3{1000.0, 0.0, 1000.0}
@@ -1233,8 +1362,7 @@ game_init :: proc() {
 	propeller := rl.LoadModel("assets/models/propeller.glb")
 	construction_model := rl.LoadModel("assets/models/construction_building.glb")
 	assembly_model := rl.LoadModel("assets/models/assembly_building.glb")
-
-	island_model := rl.LoadModel("assets/models/island_1.glb")
+	resource_model := rl.LoadModel("assets/models/resource_node.glb")
 
 	resources := AllResources {
 		s_island_model            = s_island_model,
@@ -1269,7 +1397,7 @@ game_init :: proc() {
 		can_propeller             = propeller,
 		construction_model        = construction_model,
 		assembly_model            = assembly_model,
-		island_model              = island_model,
+		resource_node_model       = resource_model,
 	}
 
 	recipes := AllRecipes {
@@ -1307,6 +1435,7 @@ game_init :: proc() {
 		player_mode  = PlayerMode.Viewing,
 		debug_info   = DebugInfo{},
 		turn_in_info = turn_in_info,
+		islands      = islands,
 	}
 
 	for i in 0 ..< 3 {
@@ -1365,6 +1494,17 @@ game_init :: proc() {
 	goal_id := len(g.travelPoints)
 	g.turn_in_building_id = goal_id
 	append(&g.travelPoints, goal_entity)
+
+	resource_node := ResourceEntity {
+		position        = rl.Vector3{5, 0.5, 5},
+		type            = ModelType.ResourceNode,
+		color           = rl.WHITE,
+		original_color  = rl.WHITE,
+		highlight_color = rl.GREEN,
+		bb              = rectBB,
+		active          = true,
+	}
+	append(&g.resourceNodes, resource_node)
 
 	game_hot_reloaded(g)
 }
@@ -1428,6 +1568,8 @@ game_shutdown :: proc() {
 
 	delete(g.all_goals.tier_one.input_map)
 	delete(g.all_goals.tier_two.input_map)
+	delete(g.islands)
+	delete(g.resourceNodes)
 	delete(g.item_pickup)
 	delete(g.travelPoints)
 	delete(g.travel)
