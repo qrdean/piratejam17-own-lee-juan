@@ -18,24 +18,18 @@ Automation constructor
 [x] ability to balance the outputs
 [x] Handle Upgrade tree for unlocking Recipes and buildings
 [x] Add Resource entity that can be built on by the canopener building. This building is free to start with but then costs 5 cans after?
+[x] Add Terrain Heightmap
+[x] Add Water Shaders
+[x] blocking between terrain and water
+[x] Need to add a system to track milestone progress and unlock different systems. (probably do this system later once we have basics working)
+[x] Need a turn in spot. As we upgrade the tech to the boat tech we will need to update to more recipes
+[x] Need to display recipe requirements and time to construct per minute
+[x] Update entities to work off of actual building types instead of model 'shapes'
+[x] Add a storage box 'workers' can pull from - Hook this up to a UI so we can see what we have currently and can 'put' x number of items into machines/drop off zones.
 [] Make buildings cost materials to build
 [] Add a fuel/electricity component with fuel
 [] Need a transport system to get across the water
-
-Upgrade system
-[x] Need to add a system to track milestone progress and unlock different systems. (probably do this system later once we have basics working)
-[x] Need a turn in spot. As we upgrade the tech to the boat tech we will need to update to more recipes
-
-Display
-[x] Need to display recipe requirements and time to construct per minute
-[x] Update entities to work off of actual building types instead of model 'shapes'
 [] Clearer indication on which places a building is hooked up to currently
-
-[x] Add Terrain Heightmap
-[x] Add Water Shaders
-[] blocking between terrain and water
-
-[x] Add a storage box 'workers' can pull from - Hook this up to a UI so we can see what we have currently and can 'put' x number of items into machines/drop off zones.
 
 Music
 Sound
