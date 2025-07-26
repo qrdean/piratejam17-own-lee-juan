@@ -45,11 +45,18 @@ Spawn_Traveler :: struct {
 	position:    rl.Vector3,
 }
 
+Output_Type :: enum {
+	Land,
+	Sea,
+}
+
 Select_Target :: struct {
-	output_id: int,
+	output_id:   int,
+	output_type: Output_Type,
 }
 Output_View :: struct {
 	building_id: int,
+	output_type: Output_Type,
 }
 Recipe_View :: struct {
 	building_id: int,
@@ -84,20 +91,23 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	transformer := Event{"Transformer", Place_Object{model = ModelType.Construct}}
 	constructor := Event{"Constructor", Place_Object{model = ModelType.Assemble}}
 	assembler := Event{"Assembler", Place_Object{model = ModelType.Manufacturer}}
+	port := Event{"Port", Place_Object{model = ModelType.Port}}
 	switch g.turn_in_info.goal_type {
 	case .Done:
 	case .TierOne:
 		constructor = Event{}
 		assembler = Event{}
+		port = Event{}
 	case .TierTwo:
 		assembler = Event{}
+		port = Event{}
 	}
 	return Selected_Entity_Action_Events {
 		miner,
 		transformer,
 		constructor,
 		assembler,
-		{},
+		port,
 		{},
 		{},
 		{},
@@ -164,7 +174,30 @@ get_recipe_list_final :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events{motor, propellor, helm, rudder, hull, {}, {}, {}}
 }
 
-get_selected_entity_action_events_cube :: proc(
+get_selected_entity_action_events_port :: proc(
+	building_id: int,
+	modelType: ModelType,
+	position: rl.Vector3,
+) -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{
+			"Add Sea",
+			Spawn_Traveler{building_id = building_id, model = modelType, position = position},
+		},
+		{"Output Sea", Output_View{building_id = building_id, output_type = Output_Type.Sea}},
+		{
+			"Add Land",
+			Spawn_Traveler{building_id = building_id, model = ModelType.Cat, position = position},
+		},
+		{"Output Land", Output_View{building_id = building_id, output_type = Output_Type.Land}},
+		{"Delete", Delete_Building{building_id = building_id}},
+		{"AddRemove", Counter_View{building_id = building_id}},
+		{},
+		{},
+	}
+}
+
+get_selected_entity_action_events_factory :: proc(
 	building_id: int,
 	modelType: ModelType,
 	position: rl.Vector3,
@@ -181,20 +214,42 @@ get_selected_entity_action_events_cube :: proc(
 	}
 }
 
-get_selected_entity_action_events_travel :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events{{"Target", Select_Target{}}, {}, {}, {}, {}, {}, {}, {}}
-}
-
 get_selected_entity_actions_events_output :: proc() -> Selected_Entity_Action_Events {
 	return Selected_Entity_Action_Events {
-		{"Output 1", Select_Target{output_id = 0}},
-		{"Output 2", Select_Target{output_id = 1}},
-		{"Output 3", Select_Target{output_id = 2}},
-		{"Output 4", Select_Target{output_id = 3}},
-		{"Output 5", Select_Target{output_id = 4}},
-		{"Output 6", Select_Target{output_id = 5}},
-		{"Output 7", Select_Target{output_id = 6}},
-		{"Output 8", Select_Target{output_id = 7}},
+		{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Land}},
+		{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Land}},
+		{"Output 3", Select_Target{output_id = 2, output_type = Output_Type.Land}},
+		{"Output 4", Select_Target{output_id = 3, output_type = Output_Type.Land}},
+		{"Output 5", Select_Target{output_id = 4, output_type = Output_Type.Land}},
+		{"Output 6", Select_Target{output_id = 5, output_type = Output_Type.Land}},
+		{"Output 7", Select_Target{output_id = 6, output_type = Output_Type.Land}},
+		{"Output 8", Select_Target{output_id = 7, output_type = Output_Type.Land}},
+	}
+}
+
+get_selected_entity_actions_events_port_land_output :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Land}},
+		{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Land}},
+		{"Output 3", Select_Target{output_id = 2, output_type = Output_Type.Land}},
+		{"Output 4", Select_Target{output_id = 3, output_type = Output_Type.Land}},
+		{},
+		{},
+		{},
+		{},
+	}
+}
+
+get_selected_entity_actions_events_port_sea_output :: proc() -> Selected_Entity_Action_Events {
+	return Selected_Entity_Action_Events {
+		{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Sea}},
+		{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Sea}},
+		{},
+		{},
+		{},
+		{},
+		{},
+		{},
 	}
 }
 
@@ -207,12 +262,17 @@ handle_button :: proc() -> bool {
 			g.player_mode = .Placing
 			g.current_extra_ui_state = .None
 		case Spawn_Traveler:
+			if d.model == .Raft {
+				spawn_cargo_travel_entity(d.building_id, d.position, d.model)
+			} else {
+				spawn_travel_entity(d.building_id, d.position, d.model)
+			}
 			fmt.println(d)
-			spawn_travel_entity(d.building_id, d.position, d.model)
 			unhighlight_all_travelers()
 		case Select_Target:
 			g.player_mode = .Selecting
 			g.current_output_info.output_id = d.output_id
+			g.current_output_info.output_type = d.output_type
 			g.current_extra_ui_state = .None
 		case Output_View:
 			if g.current_extra_ui_state == .Output {
@@ -220,6 +280,7 @@ handle_button :: proc() -> bool {
 			} else {
 				g.current_extra_ui_state = .Output
 				g.current_output_info.building_id = d.building_id
+				g.current_output_info.output_type = d.output_type
 			}
 			// NOTE: could be slow with a lot of travelers. careful here. Could change to access 
 			// Because traveler is tied to a building Id could add the ability to 
@@ -468,7 +529,21 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 	case .None:
 	// do nothing
 	case .Output:
-		draw_extra_ui_layer("Outputs", get_selected_entity_actions_events_output())
+		if selected.type == .Port {
+			if g.current_output_info.output_type == .Sea {
+				draw_extra_ui_layer(
+					"Outputs",
+					get_selected_entity_actions_events_port_sea_output(),
+				)
+			} else {
+				draw_extra_ui_layer(
+					"Outputs",
+					get_selected_entity_actions_events_port_land_output(),
+				)
+			}
+		} else {
+			draw_extra_ui_layer("Outputs", get_selected_entity_actions_events_output())
+		}
 	case .Recipe:
 		#partial switch selected.type {
 		case .Miner:

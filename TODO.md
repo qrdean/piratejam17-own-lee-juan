@@ -7,7 +7,6 @@
 ~Have a transform entity that allows the user to select a recipe to transform the item into something else~
 ~Worker has an receive and dropoff building selection. Set these via the context menu and it will build a path between the two~
 
-
 Automation constructor
 [x] Timer in Recipe to check for when a product is made
 [x] Add highlighting to travel components when on the output menu
@@ -26,9 +25,14 @@ Automation constructor
 [x] Need to display recipe requirements and time to construct per minute
 [x] Update entities to work off of actual building types instead of model 'shapes'
 [x] Add a storage box 'workers' can pull from - Hook this up to a UI so we can see what we have currently and can 'put' x number of items into machines/drop off zones.
+[x] Different cargo types for the Port 
+[x] Need a transport system to get across the water
+[] Implement less jank camera system
+[] Create Raft Model
+[] Create Port Model
+[] Create 'Miner' Model
 [] Make buildings cost materials to build
 [] Add a fuel/electricity component with fuel
-[] Need a transport system to get across the water
 [] Clearer indication on which places a building is hooked up to currently
 
 Music
@@ -38,6 +42,7 @@ Title Screen
 Settings Menu
 
 Bugs
+[] Reset the Worker count on buildings when their output destination is deleted?
 
 ### Worker instructions
 Buildings outputs can connect to another building, creating a path

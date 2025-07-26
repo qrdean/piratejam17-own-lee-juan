@@ -35,6 +35,7 @@ import rlgl "vendor:raylib/rlgl"
 PIXEL_WINDOW_HEIGHT :: 360
 TILE_SIZE :: 32
 MAX_RESOURCES :: 250
+PORT_MAX_RESOURCES :: 2500
 
 shader_version_folder := "version330"
 
@@ -45,6 +46,7 @@ Game_Memory :: struct {
 	camera:                 rl.Camera,
 	travelPoints:           [dynamic]FactoryEntity,
 	travel:                 [dynamic]TravelEntity,
+	cargoTravel:            [dynamic]CargoTravelEntity,
 	resourceNodes:          [dynamic]ResourceEntity,
 	islands:                [dynamic]Island_Entity,
 	turn_in_info:           TurnInPoint,
@@ -86,6 +88,7 @@ Output_Info :: struct {
 	output_id:               int,
 	collision_info:          bool,
 	destination_building_id: int,
+	output_type:             Output_Type,
 }
 
 RayCollisionInfo :: struct {
@@ -141,6 +144,8 @@ AllResources :: struct {
 	assembly_model:            rl.Model,
 	island_model:              rl.Model,
 	resource_node_model:       rl.Model,
+	// raft_model:                rl.Model,
+	// port_model:                rl.Model,
 }
 
 AllRecipes :: struct {
@@ -179,14 +184,17 @@ FactoryType :: enum {
 	Miner,
 	Transformer,
 	TurnIn,
+	Port,
 }
 
 FactoryEntity :: struct {
 	using ThreeDeeEntity: ThreeDeeEntity,
 	using Constructor:    Constructor,
 	output_workers:       [9]Worker,
+	output_workers_2:     [9]Worker,
 	current_pick_worker:  int,
 	worker_count:         int,
+	worker_count_2:       int,
 	factory_type:         FactoryType,
 }
 
@@ -206,6 +214,15 @@ TravelEntity :: struct {
 	worker_id:            int,
 	building_id:          int,
 	current_cargo:        Item,
+	current_target_id:    int,
+	action:               TravelEntityAction,
+}
+
+CargoTravelEntity :: struct {
+	using ThreeDeeEntity: ThreeDeeEntity,
+	worker_id:            int,
+	building_id:          int,
+	current_cargo:        map[ItemType]i32,
 	current_target_id:    int,
 	action:               TravelEntityAction,
 }
@@ -242,6 +259,8 @@ ModelType :: enum {
 	Manufacturer,
 	TurnInPoint,
 	Miner,
+	Port,
+	Raft,
 	Cat,
 	CanOpened,
 	CanUnopened,
@@ -308,6 +327,10 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.island_model
 	case .ResourceNode:
 		return g.allResources.resource_node_model
+	case .Port:
+		return g.allResources.rectangleModel
+	case .Raft:
+		return g.allResources.can_opened
 	}
 	return g.allResources.cubeModel
 }
@@ -390,6 +413,10 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Island_1"
 	case .ResourceNode:
 		return "resource"
+	case .Port:
+		return "Port"
+	case .Raft:
+		return "Raft"
 	}
 	return "undefined"
 }
@@ -426,9 +453,36 @@ bounding_box_and_transform :: proc(bb: rl.BoundingBox, position: rl.Vector3) -> 
 	}
 }
 
+spawn_cargo_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: ModelType) {
+	worker_count_2 := g.travelPoints[building_id].worker_count_2
+	if worker_count_2 >= 2 {
+		return
+	}
+
+	g.travelPoints[building_id].output_workers_2[worker_count_2].origin_id = building_id
+	travel_entity := CargoTravelEntity {
+		type              = model_type,
+		position          = position,
+		bb                = rl.GetModelBoundingBox(get_model(model_type)),
+		color             = rl.WHITE,
+		current_cargo     = make(map[ItemType]i32),
+		current_target_id = building_id,
+		building_id       = building_id,
+		worker_id         = worker_count_2,
+		active            = true,
+	}
+	append(&g.cargoTravel, travel_entity)
+	g.travelPoints[building_id].worker_count_2 += 1
+}
+
 spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: ModelType) {
 	worker_count := g.travelPoints[building_id].worker_count
-	if worker_count >= 9 {
+	worker_count_check := 9
+	if g.travelPoints[building_id].factory_type == .Port {
+		worker_count_check = 6
+	}
+
+	if worker_count >= worker_count_check {
 		return
 	}
 
@@ -490,11 +544,23 @@ handle_collisions_three_dee :: proc(three_dee: ThreeDeeEntity) -> rl.RayCollisio
 	return rCollision
 }
 
+handle_port_selection :: proc(three_dee: ThreeDeeEntity, id: int, spawn_model_type: ModelType) {
+	g.selected = SelectedEntity {
+		id                      = id,
+		ThreeDeeEntity          = three_dee,
+		selected_entity_actions = get_selected_entity_action_events_port(
+			id,
+			spawn_model_type,
+			three_dee.position,
+		),
+	}
+}
+
 handle_entity_selection :: proc(three_dee: ThreeDeeEntity, id: int, spawn_model_type: ModelType) {
 	g.selected = SelectedEntity {
 		id                      = id,
 		ThreeDeeEntity          = three_dee,
-		selected_entity_actions = get_selected_entity_action_events_cube(
+		selected_entity_actions = get_selected_entity_action_events_factory(
 			id,
 			spawn_model_type,
 			three_dee.position,
@@ -512,11 +578,18 @@ handle_editor_update :: proc() {
 			travelPoint := g.travelPoints[i]
 			rCollision := handle_collisions_three_dee(travelPoint)
 			if rCollision.hit {
-				if travelPoint.factory_type == .TurnIn {
-					// Do something else
-				} else {
+				#partial switch travelPoint.factory_type {
+				case .TurnIn:
+				case .Port:
+					handle_port_selection(travelPoint, i, .Raft)
+				case:
 					handle_entity_selection(travelPoint, i, .Cat)
 				}
+				// if travelPoint.factory_type == .TurnIn {
+				// 	// Do something else
+				// } else {
+				// 	handle_entity_selection(travelPoint, i, .Cat)
+				// }
 			}
 			g.travelPoints[i].selected = rCollision.hit
 			if !hit_anything && rCollision.hit {
@@ -538,7 +611,8 @@ handle_editor_update :: proc() {
 
 handle_placing_mode :: proc() {
 	g.current_placing_info.collision_info = false
-	if g.current_placing_info.modelType == .Miner {
+	#partial switch g.current_placing_info.modelType {
+	case .Miner:
 		for i in 0 ..< len(g.resourceNodes) {
 			if rl.CheckCollisionBoxes(
 				bounding_box_and_transform(
@@ -553,19 +627,47 @@ handle_placing_mode :: proc() {
 				g.current_placing_info.collision_info = true
 			}
 		}
-	} else {
-		if rl.CheckCollisionBoxes(
-			rl.GetModelBoundingBox(g.allResources.terrainModel),
-			bounding_box_and_transform(
-				rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
-				g.current_collision_info.point,
-			),
-		) {
-			g.current_placing_info.collision_info = true
+	case .Port:
+		for island in g.islands {
+			bb_inner := island_inner_model_bounding_boxes(island.island_size, island.position)
+			bb_outer := island_model_bounding_boxes(island.island_size, island.position)
+			if rl.CheckCollisionBoxes(
+				bb_outer,
+				bounding_box_and_transform(
+					rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+					g.current_collision_info.point,
+				),
+			) {
+				if !rl.CheckCollisionBoxes(
+					bb_inner,
+					bounding_box_and_transform(
+						rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+						g.current_collision_info.point,
+					),
+				) {
+					g.current_placing_info.collision_info = true
+					break
+				}
+			}
+		}
+
+	case:
+		for island in g.islands {
+			bb := island_model_bounding_boxes(island.island_size, island.position)
+			if rl.CheckCollisionBoxes(
+				bb,
+				bounding_box_and_transform(
+					rl.GetModelBoundingBox(get_model(g.current_placing_info.modelType)),
+					g.current_collision_info.point,
+				),
+			) {
+				g.current_placing_info.collision_info = true
+				break
+			}
 		}
 	}
 
-	if rl.IsMouseButtonPressed(.LEFT) {
+	if rl.IsMouseButtonPressed(.LEFT) && g.current_placing_info.collision_info {
 		#partial switch g.current_placing_info.modelType {
 		case .Rectangle:
 			entity := FactoryEntity {
@@ -681,7 +783,31 @@ handle_placing_mode :: proc() {
 				factory_type    = .TurnIn,
 			}
 			append(&g.travelPoints, entity)
+		case .Port:
+			entity := FactoryEntity {
+				position        = rl.Vector3 {
+					g.current_collision_info.point.x,
+					1.0,
+					g.current_collision_info.point.z,
+				},
+				type            = g.current_placing_info.modelType,
+				color           = rl.YELLOW,
+				original_color  = rl.YELLOW,
+				highlight_color = rl.GREEN,
+				bb              = rl.GetModelBoundingBox(
+					get_model(g.current_placing_info.modelType),
+				),
+				active          = true,
+				recipe_type     = .None,
+				factory_type    = .Port,
+			}
+			append(&g.travelPoints, entity)
+
 		}
+		g.player_mode = .Editing
+	}
+
+	if rl.IsMouseButtonPressed(.RIGHT) || rl.IsKeyPressed(.B) {
 		g.player_mode = .Editing
 	}
 }
@@ -721,6 +847,11 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 					1
 					travel_entity.current_cargo.ItemType = .None
 				}
+			} else if factory.factory_type == .Port {
+				current_item_type := travel_entity.current_cargo.ItemType
+				g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
+				1
+				travel_entity.current_cargo.ItemType = .None
 			} else if factory.current_inputs[travel_entity.current_cargo.ItemType] <
 			   MAX_RESOURCES {
 				recipe := get_recipe_from_memory(factory.recipe_type)
@@ -770,6 +901,90 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 	}
 }
 
+calculate_cargo_traveler_cargo :: proc(travel_entity: ^CargoTravelEntity) {
+	if len(g.travelPoints) < travel_entity.current_target_id {
+		return
+	}
+
+	if !g.travelPoints[travel_entity.current_target_id].active {return}
+
+	distanceTo := rl.Vector3Distance(
+		travel_entity.position,
+		g.travelPoints[travel_entity.current_target_id].position,
+	)
+	if math.abs(distanceTo) > 2. {
+		next_pos := rl.Vector3MoveTowards(
+			travel_entity.position,
+			g.travelPoints[travel_entity.current_target_id].position,
+			0.21,
+		)
+		travel_entity.position = next_pos
+	} else {
+		workers :=
+			g.travelPoints[travel_entity.building_id].output_workers_2[travel_entity.worker_id]
+		if travel_entity.current_target_id == workers.destination_id {
+			// Handle drop off
+			port := g.travelPoints[travel_entity.current_target_id]
+			for cargo in travel_entity.current_cargo {
+				if port.current_inputs[cargo] < PORT_MAX_RESOURCES {
+					g.travelPoints[travel_entity.current_target_id].current_inputs[cargo] +=
+						travel_entity.current_cargo[cargo]
+					travel_entity.current_cargo[cargo] = 0
+				}
+			}
+			// if port.current_inputs[travel_entity.current_cargo.ItemType] < PORT_MAX_RESOURCES {
+			// 	recipe := get_recipe_from_memory(factory.recipe_type)
+			// 	if check_type_for_recipe(travel_entity.current_cargo.ItemType, recipe) {
+			// 		current_item_type := travel_entity.current_cargo.ItemType
+			// 		g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
+			// 		1
+			// 		travel_entity.current_cargo.ItemType = .None
+			// 	}
+			// }
+			// Next target
+			travel_entity.current_target_id = workers.origin_id
+		} else {
+			// Handle pick up
+			for key in g.travelPoints[travel_entity.building_id].current_outputs {
+				travel_entity.current_cargo[key] =
+					g.travelPoints[travel_entity.building_id].current_outputs[key]
+				g.travelPoints[travel_entity.building_id].current_outputs[key] = 0
+			}
+			// if travel_entity.current_cargo.ItemType == .None {
+			// 	has_less_than_5 := false
+			// 	for key in g.travelPoints[travel_entity.building_id].current_outputs {
+			// 		if g.travelPoints[travel_entity.building_id].current_outputs[key] < 5 {
+			// 			has_less_than_5 = true
+			// 			break
+			// 		}
+			// 	}
+			// 	if travel_entity.worker_id ==
+			// 		   g.travelPoints[travel_entity.current_target_id].current_pick_worker ||
+			// 	   !has_less_than_5 {
+			// 		factory := g.travelPoints[travel_entity.current_target_id]
+			// 		for key in factory.current_outputs {
+			// 			if g.travelPoints[travel_entity.current_target_id].current_outputs[key] >
+			// 			   0 {
+			// 				g.travelPoints[travel_entity.current_target_id].current_outputs[key] -=
+			// 				1
+			// 				travel_entity.current_cargo.ItemType = key
+			// 				travel_entity.current_cargo.position_offset = rl.Vector3{0., 1., 0.}
+			// 				travel_entity.current_cargo.color = rl.WHITE
+			// 			}
+			// 		}
+			// 		g.travelPoints[travel_entity.building_id].current_pick_worker += 1
+			// 		if g.travelPoints[travel_entity.building_id].current_pick_worker >
+			// 		   g.travelPoints[travel_entity.building_id].worker_count - 1 {
+			// 			g.travelPoints[travel_entity.building_id].current_pick_worker = 0
+			// 		}
+			// 	}
+			// }
+			// Next target
+			travel_entity.current_target_id = workers.destination_id
+		}
+	}
+}
+
 handle_selecting_update :: proc() {
 	g.current_output_info.collision_info = false
 	g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
@@ -782,11 +997,19 @@ handle_selecting_update :: proc() {
 		travelPoint := g.travelPoints[i]
 		rCollision := handle_collisions_three_dee(travelPoint)
 
+		if g.travelPoints[g.current_output_info.building_id].factory_type == .Port {
+			if g.current_output_info.output_type == .Sea {
+				if rCollision.hit && g.travelPoints[i].factory_type == .Port {
+					g.current_output_info.collision_info = true
+					g.current_output_info.destination_building_id = i
+				}
+				continue
+			}
+		}
+
+
 		// Check for terrain
 		origin_point := g.travelPoints[g.current_output_info.building_id].position
-		// normal := rCollision.normal
-		// number_of_points := int(rCollision.distance / 10.)
-		// direction := rCollision.point - travelPoint.position
 		if rCollision.hit {
 			for island in g.islands {
 				bb := island_model_bounding_boxes(island.island_size, island.position)
@@ -799,6 +1022,7 @@ handle_selecting_update :: proc() {
 						origin_point,
 					),
 				) {
+					fmt.println(island)
 					position := rCollision.point
 					position = position.y * 0.01
 					if rl.CheckCollisionBoxes(
@@ -813,7 +1037,7 @@ handle_selecting_update :: proc() {
 					) {
 						g.current_output_info.collision_info = true
 						g.current_output_info.destination_building_id = i
-					} 
+					}
 				}
 			}
 		}
@@ -845,8 +1069,6 @@ handle_selecting_update :: proc() {
 		// 	// fmt.println(we_hit.hit)
 		// }
 
-		if rCollision.hit {
-		}
 	}
 
 	if rl.IsMouseButtonPressed(.LEFT) {
@@ -857,8 +1079,14 @@ handle_selecting_update :: proc() {
 				g.current_extra_ui_state = .None
 				rl.DisableCursor()
 				g.travelPoints[i].color = g.travelPoints[i].original_color
-				g.travelPoints[g.current_output_info.building_id].output_workers[g.current_output_info.output_id].destination_id =
-					g.current_output_info.destination_building_id
+
+				if g.current_output_info.output_type == .Sea {
+					g.travelPoints[g.current_output_info.building_id].output_workers_2[g.current_output_info.output_id].destination_id =
+						g.current_output_info.destination_building_id
+				} else {
+					g.travelPoints[g.current_output_info.building_id].output_workers[g.current_output_info.output_id].destination_id =
+						g.current_output_info.destination_building_id
+				}
 			}
 		}
 	}
@@ -925,12 +1153,21 @@ update :: proc() {
 		calculate_traveler_cargo(&g.travel[i])
 	}
 
+	for i in 0 ..< len(g.cargoTravel) {
+		calculate_cargo_traveler_cargo(&g.cargoTravel[i])
+	}
+
 	for i in 0 ..< len(g.travelPoints) {
 		if !g.travelPoints[i].active {continue}
 		if g.travelPoints[i].factory_type == .TurnIn {
 			if calculate_goals(g.travelPoints[i], g.turn_in_info.goal_type) {
 				// clear(&g.turn_in_info.current_count_map)
 				g.turn_in_info.goal_type = get_next_goal(g.turn_in_info.goal_type)
+			}
+		} else if g.travelPoints[i].factory_type == .Port {
+			for key in g.travelPoints[i].current_inputs {
+				g.travelPoints[i].current_outputs[key] += g.travelPoints[i].current_inputs[key]
+				g.travelPoints[i].current_inputs[key] = 0
 			}
 		} else {
 			maxed_out := false
@@ -970,12 +1207,8 @@ update :: proc() {
 	}
 
 	if rl.IsKeyPressed(.P) {
-		// test_constructor_scenario_1()
-		// test_constructor_scenario_2()
-		// test_constructor_scenario_3()
-		// test_item_check()
 		overwrite_recipe_time(&g.all_recipes.can_opened, 0.5)
-		test_dynamic_array_removal()
+		debug_end_goal()
 	}
 
 
@@ -1064,6 +1297,26 @@ island_model_bounding_boxes :: proc(
 	case .Small:
 		a := bounding_box_and_transform(
 			rl.GetModelBoundingBox(g.allResources.s_island_sand_outer_model),
+			position,
+		)
+		return a
+	case .Medium:
+		return bounding_box_and_transform(
+			rl.GetModelBoundingBox(g.allResources.m_island_sand_outer_model),
+			position,
+		)
+	}
+	return rl.BoundingBox{}
+}
+
+island_inner_model_bounding_boxes :: proc(
+	island_size: Island_Size,
+	position: rl.Vector3,
+) -> rl.BoundingBox {
+	switch island_size {
+	case .Small:
+		a := bounding_box_and_transform(
+			rl.GetModelBoundingBox(g.allResources.s_island_model),
 			position,
 		)
 		return a
@@ -1167,6 +1420,13 @@ draw :: proc() {
 		}
 		if g.travel[i].selected {
 			draw_editing_layer(g.travel[i])
+		}
+	}
+
+	for i in g.cargoTravel {
+		draw_three_dee_entity(i)
+		if i.selected {
+			draw_editing_layer(i)
 		}
 	}
 
@@ -1565,12 +1825,17 @@ game_shutdown :: proc() {
 	for &i in g.travelPoints {
 		clean_up_constructor(&i)
 	}
+	for &i in g.cargoTravel {
+		delete(i.current_cargo)
+	}
 
 	delete(g.all_goals.tier_one.input_map)
 	delete(g.all_goals.tier_two.input_map)
+
 	delete(g.islands)
 	delete(g.resourceNodes)
 	delete(g.item_pickup)
+	delete(g.cargoTravel)
 	delete(g.travelPoints)
 	delete(g.travel)
 	free(g)
