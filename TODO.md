@@ -27,11 +27,14 @@ Automation constructor
 [x] Add a storage box 'workers' can pull from - Hook this up to a UI so we can see what we have currently and can 'put' x number of items into machines/drop off zones.
 [x] Different cargo types for the Port 
 [x] Need a transport system to get across the water
+[x] Make buildings cost materials to build
+[x] Create Raft Model
+[x] Create Port Model
+[x] Create 'Miner' Model
 [] Implement less jank camera system
-[] Create Raft Model
-[] Create Port Model
-[] Create 'Miner' Model
-[] Make buildings cost materials to build
+[] Add a storage box workers can travel to  
+[] Ability to clear all workers current held items
+[] Remove 'Delete'
 [] Add a fuel/electricity component with fuel
 [] Clearer indication on which places a building is hooked up to currently
 

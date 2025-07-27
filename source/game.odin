@@ -145,8 +145,9 @@ AllResources :: struct {
 	assembly_model:            rl.Model,
 	island_model:              rl.Model,
 	resource_node_model:       rl.Model,
-	// raft_model:                rl.Model,
-	// port_model:                rl.Model,
+	raft_model:                rl.Model,
+	port_model:                rl.Model,
+	miner_model:               rl.Model,
 }
 
 AllRecipes :: struct {
@@ -304,7 +305,7 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 	case .Construct:
 		return g.allResources.construction_model
 	case .Miner:
-		return g.allResources.construction_model
+		return g.allResources.miner_model
 	case .Assemble:
 		return g.allResources.assembly_model
 	case .Manufacturer:
@@ -340,9 +341,9 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 	case .ResourceNode:
 		return g.allResources.resource_node_model
 	case .Port:
-		return g.allResources.rectangleModel
+		return g.allResources.port_model
 	case .Raft:
-		return g.allResources.can_opened
+		return g.allResources.raft_model
 	}
 	return g.allResources.cubeModel
 }
@@ -911,8 +912,15 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 					get_goal_from_memory(g.turn_in_info.goal_type),
 				) {
 					current_item_type := travel_entity.current_cargo.ItemType
-					g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
-					1
+					max :=
+						get_goal_from_memory(g.turn_in_info.goal_type).input_map[current_item_type]
+					if g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] >=
+					   max {
+						g.item_pickup[current_item_type] += 1
+					} else {
+						g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
+						1
+					}
 					travel_entity.current_cargo.ItemType = .None
 				}
 			} else if factory.factory_type == .Port {
@@ -1000,7 +1008,7 @@ calculate_cargo_traveler_cargo :: proc(travel_entity: ^CargoTravelEntity) {
 				if cargo != .None {
 					if port.current_inputs[cargo] < PORT_MAX_RESOURCES {
 						g.travelPoints[travel_entity.current_target_id].current_inputs[cargo] +=
-						travel_entity.current_cargo[cargo]
+							travel_entity.current_cargo[cargo]
 						travel_entity.current_cargo[cargo] = 0
 					}
 				}
@@ -1697,6 +1705,9 @@ game_init :: proc() {
 	construction_model := rl.LoadModel("assets/models/construction_building.glb")
 	assembly_model := rl.LoadModel("assets/models/assembly_building.glb")
 	resource_model := rl.LoadModel("assets/models/resource_node.glb")
+	miner_model := rl.LoadModel("assets/models/miner.glb")
+	port_model := rl.LoadModel("assets/models/port.glb")
+	raft_model := rl.LoadModel("assets/models/raft.glb")
 
 	resources := AllResources {
 		s_island_model            = s_island_model,
@@ -1732,6 +1743,9 @@ game_init :: proc() {
 		construction_model        = construction_model,
 		assembly_model            = assembly_model,
 		resource_node_model       = resource_model,
+		miner_model               = miner_model,
+		port_model                = port_model,
+		raft_model                = raft_model,
 	}
 
 	recipes := AllRecipes {
