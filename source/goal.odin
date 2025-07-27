@@ -4,6 +4,9 @@ package game
 GoalType :: enum {
 	TierOne,
 	TierTwo,
+	TierThree,
+	TierFour,
+	TierFive,
 	Done,
 }
 
@@ -17,11 +20,32 @@ get_goal :: proc(goal_type: GoalType) -> Goal {
 	case .TierOne:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanFlat] = 50
-		return {input_map = input_map, reward_text = "youcomplete tier. unlock blahblahblah"}
+		return {input_map = input_map, reward_text = "Recipe: Strips"}
 	case .TierTwo:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanStrips] = 50
-		return {input_map = input_map, reward_text = "youcomplete tier. unlock blahblahblah"}
+		return {
+			input_map = input_map,
+			reward_text = "Recipe: Nails, Rings. Upgrade: Miner Speed Increase",
+		}
+	case .TierThree:
+		input_map := make(map[ItemType]i32)
+		input_map[.CanNails] = 120
+		input_map[.CanRing] = 100
+		return {input_map = input_map, reward_text = "Building(s): Constructor, Port"}
+	case .TierFour:
+		input_map := make(map[ItemType]i32)
+		input_map[.CanReinforced] = 50
+		input_map[.CanRotator] = 25
+		return {input_map = input_map, reward_text = "Building: Assembler"}
+	case .TierFive:
+		input_map := make(map[ItemType]i32)
+		input_map[.CanMotor] = 1
+		input_map[.CanPropeller] = 1
+		input_map[.CanHull] = 1
+		input_map[.CanRutter] = 1
+		input_map[.CanHelm] = 1
+		return {input_map = input_map, reward_text = "You Escape"}
 	case .Done:
 		return {}
 	}
@@ -34,6 +58,12 @@ get_goal_from_memory :: proc(goal_type: GoalType) -> Goal {
 		return g.all_goals.tier_one
 	case .TierTwo:
 		return g.all_goals.tier_two
+	case .TierThree:
+		return g.all_goals.tier_three
+	case .TierFour:
+		return g.all_goals.tier_four
+	case .TierFive:
+		return g.all_goals.tier_five
 	case .Done:
 		return {}
 	}
@@ -45,6 +75,12 @@ get_next_goal :: proc(goal_type: GoalType) -> GoalType {
 	case .TierOne:
 		return .TierTwo
 	case .TierTwo:
+		return .TierThree
+	case .TierThree:
+		return .TierFour
+	case .TierFour:
+		return .TierFive
+	case .TierFive:
 		return .Done
 	case .Done:
 		return .Done

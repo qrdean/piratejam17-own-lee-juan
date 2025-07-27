@@ -55,6 +55,7 @@ Game_Memory :: struct {
 	allResources:           AllResources,
 	all_recipes:            AllRecipes,
 	all_goals:              AllGoals,
+	all_costs:              AllCosts,
 	waterPos:               rl.Vector3,
 	button_event:           Event,
 	player_mode:            PlayerMode,
@@ -164,9 +165,20 @@ AllRecipes :: struct {
 	can_boat:       Recipe,
 }
 
+AllCosts :: struct {
+	miner_cost:        map[ItemType]i32,
+	constructor_cost:  map[ItemType]i32,
+	assembler_cost:    map[ItemType]i32,
+	manufacturer_cost: map[ItemType]i32,
+	port_cost:         map[ItemType]i32,
+}
+
 AllGoals :: struct {
-	tier_one: Goal,
-	tier_two: Goal,
+	tier_one:   Goal,
+	tier_two:   Goal,
+	tier_three: Goal,
+	tier_four:  Goal,
+	tier_five:  Goal,
 }
 
 ThreeDeeEntity :: struct {
@@ -361,6 +373,43 @@ get_model_from_item :: proc(item_type: ItemType) -> rl.Model {
 		return g.allResources.can_propeller
 	}
 	return g.allResources.cubeModel
+}
+
+get_model_cost :: proc(modelType: ModelType) -> map[ItemType]i32 {
+	cost_map := make(map[ItemType]i32)
+	#partial switch modelType {
+	case .Miner:
+		cost_map[ItemType.CanOpened] = 3
+	case .Construct:
+		cost_map[ItemType.CanFlat] = 4
+	case .Assemble:
+		cost_map[ItemType.CanFlat] = 3
+		cost_map[ItemType.CanStrips] = 3
+		cost_map[ItemType.CanRing] = 1
+	case .Manufacturer:
+		cost_map[ItemType.CanReinforced] = 2
+		cost_map[ItemType.CanRotator] = 1
+	case .Port:
+		cost_map[ItemType.CanFlat] = 2
+		cost_map[ItemType.CanStrips] = 1
+	}
+	return cost_map
+}
+
+get_model_cost_from_memory :: proc(modelType: ModelType) -> map[ItemType]i32 {
+	#partial switch modelType {
+	case .Miner:
+		return g.all_costs.miner_cost
+	case .Construct:
+		return g.all_costs.constructor_cost
+	case .Assemble:
+		return g.all_costs.assembler_cost
+	case .Manufacturer:
+		return g.all_costs.manufacturer_cost
+	case .Port:
+		return g.all_costs.port_cost
+	}
+	return nil
 }
 
 type_to_string :: proc(modelType: ModelType) -> string {
@@ -707,6 +756,10 @@ handle_placing_mode :: proc() {
 				factory_type    = .Miner,
 			}
 			append(&g.travelPoints, entity)
+			cost := get_model_cost_from_memory(.Miner)
+			for key in cost {
+				g.item_pickup[key] -= cost[key]
+			}
 		case .Construct:
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
@@ -726,6 +779,10 @@ handle_placing_mode :: proc() {
 				factory_type    = .Transformer,
 			}
 			append(&g.travelPoints, entity)
+			cost := get_model_cost_from_memory(.Construct)
+			for key in cost {
+				g.item_pickup[key] -= cost[key]
+			}
 		case .Assemble:
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
@@ -745,6 +802,10 @@ handle_placing_mode :: proc() {
 				factory_type    = .Transformer,
 			}
 			append(&g.travelPoints, entity)
+			cost := get_model_cost_from_memory(.Assemble)
+			for key in cost {
+				g.item_pickup[key] -= cost[key]
+			}
 		case .Manufacturer:
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
@@ -764,6 +825,10 @@ handle_placing_mode :: proc() {
 				factory_type    = .Transformer,
 			}
 			append(&g.travelPoints, entity)
+			cost := get_model_cost_from_memory(.Assemble)
+			for key in cost {
+				g.item_pickup[key] -= cost[key]
+			}
 		case .TurnInPoint:
 			entity := FactoryEntity {
 				position        = rl.Vector3 {
@@ -802,7 +867,10 @@ handle_placing_mode :: proc() {
 				factory_type    = .Port,
 			}
 			append(&g.travelPoints, entity)
-
+			cost := get_model_cost_from_memory(.Assemble)
+			for key in cost {
+				g.item_pickup[key] -= cost[key]
+			}
 		}
 		g.player_mode = .Editing
 	}
@@ -848,10 +916,12 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 					travel_entity.current_cargo.ItemType = .None
 				}
 			} else if factory.factory_type == .Port {
-				current_item_type := travel_entity.current_cargo.ItemType
-				g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
-				1
-				travel_entity.current_cargo.ItemType = .None
+				if travel_entity.current_cargo.ItemType != .None {
+					current_item_type := travel_entity.current_cargo.ItemType
+					g.travelPoints[travel_entity.current_target_id].current_inputs[current_item_type] +=
+					1
+					travel_entity.current_cargo.ItemType = .None
+				}
 			} else if factory.current_inputs[travel_entity.current_cargo.ItemType] <
 			   MAX_RESOURCES {
 				recipe := get_recipe_from_memory(factory.recipe_type)
@@ -886,6 +956,7 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 							travel_entity.current_cargo.ItemType = key
 							travel_entity.current_cargo.position_offset = rl.Vector3{0., 1., 0.}
 							travel_entity.current_cargo.color = rl.WHITE
+							break
 						}
 					}
 					g.travelPoints[travel_entity.building_id].current_pick_worker += 1
@@ -926,10 +997,12 @@ calculate_cargo_traveler_cargo :: proc(travel_entity: ^CargoTravelEntity) {
 			// Handle drop off
 			port := g.travelPoints[travel_entity.current_target_id]
 			for cargo in travel_entity.current_cargo {
-				if port.current_inputs[cargo] < PORT_MAX_RESOURCES {
-					g.travelPoints[travel_entity.current_target_id].current_inputs[cargo] +=
+				if cargo != .None {
+					if port.current_inputs[cargo] < PORT_MAX_RESOURCES {
+						g.travelPoints[travel_entity.current_target_id].current_inputs[cargo] +=
 						travel_entity.current_cargo[cargo]
-					travel_entity.current_cargo[cargo] = 0
+						travel_entity.current_cargo[cargo] = 0
+					}
 				}
 			}
 			// if port.current_inputs[travel_entity.current_cargo.ItemType] < PORT_MAX_RESOURCES {
@@ -1209,6 +1282,7 @@ update :: proc() {
 	if rl.IsKeyPressed(.P) {
 		overwrite_recipe_time(&g.all_recipes.can_opened, 0.5)
 		debug_end_goal()
+		debug_many_items()
 	}
 
 
@@ -1375,7 +1449,7 @@ draw :: proc() {
 	rlgl.EnableDepthMask()
 	rlgl.EnableDepthTest()
 	rlgl.SetBlendMode(i32(rl.BlendMode.ALPHA))
-	rl.DrawGrid(1000, 2.)
+	// rl.DrawGrid(1000, 2.)
 
 	for island in g.islands {
 		draw_island_model(island.island_size, island.position)
@@ -1677,12 +1751,23 @@ game_init :: proc() {
 	}
 
 	goals := AllGoals {
-		tier_one = get_goal(.TierOne),
-		tier_two = get_goal(.TierTwo),
+		tier_one   = get_goal(.TierOne),
+		tier_two   = get_goal(.TierTwo),
+		tier_three = get_goal(.TierThree),
+		tier_four  = get_goal(.TierFour),
+		tier_five  = get_goal(.TierFive),
 	}
 
 	turn_in_info := TurnInPoint {
 		goal_type = .TierOne,
+	}
+
+	costs := AllCosts {
+		miner_cost        = get_model_cost(.Miner),
+		constructor_cost  = get_model_cost(.Construct),
+		assembler_cost    = get_model_cost(.Assemble),
+		manufacturer_cost = get_model_cost(.Manufacturer),
+		port_cost         = get_model_cost(.Port),
 	}
 
 	g^ = Game_Memory {
@@ -1692,11 +1777,15 @@ game_init :: proc() {
 		allResources = resources,
 		all_recipes  = recipes,
 		all_goals    = goals,
+		all_costs    = costs,
 		player_mode  = PlayerMode.Viewing,
 		debug_info   = DebugInfo{},
 		turn_in_info = turn_in_info,
 		islands      = islands,
 	}
+
+	g.item_pickup[ItemType.CanOpened] = 10
+	g.item_pickup[ItemType.CanFlat] = 5
 
 	for i in 0 ..< 3 {
 		if (i % 2 == 0) {
@@ -1831,6 +1920,14 @@ game_shutdown :: proc() {
 
 	delete(g.all_goals.tier_one.input_map)
 	delete(g.all_goals.tier_two.input_map)
+	delete(g.all_goals.tier_three.input_map)
+	delete(g.all_goals.tier_four.input_map)
+	delete(g.all_goals.tier_five.input_map)
+	delete(g.all_costs.miner_cost)
+	delete(g.all_costs.constructor_cost)
+	delete(g.all_costs.assembler_cost)
+	delete(g.all_costs.manufacturer_cost)
+	delete(g.all_costs.port_cost)
 
 	delete(g.islands)
 	delete(g.resourceNodes)

@@ -99,8 +99,17 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 		assembler = Event{}
 		port = Event{}
 	case .TierTwo:
+		constructor = Event{}
 		assembler = Event{}
 		port = Event{}
+	case .TierThree:
+		constructor = Event{}
+		assembler = Event{}
+		port = Event{}
+	case .TierFour:
+		assembler = Event{}
+		port = Event{}
+	case .TierFive:
 	}
 	return Selected_Entity_Action_Events {
 		miner,
@@ -127,11 +136,15 @@ get_recipe_list :: proc() -> Selected_Entity_Action_Events {
 	switch g.turn_in_info.goal_type {
 	case .Done:
 	case .TierOne:
+		strips = Event{}
 		nails = Event{}
 		rings = Event{}
 	case .TierTwo:
 		nails = Event{}
 		rings = Event{}
+	case .TierThree:
+	case .TierFour:
+	case .TierFive:
 	}
 	return Selected_Entity_Action_Events{flat, strips, nails, rings, {}, {}, {}, {}}
 }
@@ -146,6 +159,12 @@ get_recipe_list_assembly :: proc() -> Selected_Entity_Action_Events {
 		rotator = Event{}
 	case .TierTwo:
 		reinforce = Event{}
+		rotator = Event{}
+	case .TierThree:
+		reinforce = Event{}
+		rotator = Event{}
+	case .TierFour:
+	case .TierFive:
 	}
 	return Selected_Entity_Action_Events{reinforce, rotator, {}, {}, {}, {}, {}, {}}
 }
@@ -170,6 +189,19 @@ get_recipe_list_final :: proc() -> Selected_Entity_Action_Events {
 		helm = Event{}
 		rudder = Event{}
 		hull = Event{}
+	case .TierThree:
+		motor = Event{}
+		propellor = Event{}
+		helm = Event{}
+		rudder = Event{}
+		hull = Event{}
+	case .TierFour:
+		motor = Event{}
+		propellor = Event{}
+		helm = Event{}
+		rudder = Event{}
+		hull = Event{}
+	case .TierFive:
 	}
 	return Selected_Entity_Action_Events{motor, propellor, helm, rudder, hull, {}, {}, {}}
 }
@@ -345,10 +377,42 @@ draw_default_button_ui :: proc() {
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
 		gui_button_rectangle.x = gui_button_rectangle.x + (f32(rl.GetScreenWidth()) - 340)
 		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 210)
+		// #partial switch d in g.button_event.Data {
+		// case Place_Object:
+		// 	if d.model == .Miner {
+		// 		// check for things
+		// 	}
+		// }
 		if actions[i].Data != nil {
+			#partial switch d in actions[i].Data {
+			case Place_Object:
+				cost := get_model_cost_from_memory(d.model)
+				for key in cost {
+					if g.item_pickup[key] <= cost[key] {
+						rl.GuiDisable()
+					}
+				}
+			}
 			if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", actions[i].ButtonText)) {
 				g.button_event = actions[i]
 			}
+			#partial switch d in actions[i].Data {
+			case Place_Object:
+				if rl.CheckCollisionPointRec(rl.GetMousePosition(), gui_button_rectangle) {
+					// Do something like display another button or section
+					rl.DrawText(
+						fmt.ctprintf(
+							"%v",
+							get_item_map_text_new_line(get_model_cost_from_memory(d.model)),
+						),
+						i32(gui_button_rectangle.x) + 4,
+						i32(gui_button_rectangle.y) + i32(gui_button_rectangle.height) - 12,
+						8.,
+						rl.DARKGRAY,
+					)
+				}
+			}
+			rl.GuiEnable()
 		}
 	}
 }
