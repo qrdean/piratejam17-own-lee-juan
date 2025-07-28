@@ -33,6 +33,7 @@ ButtonActions :: union {
 	Counter_View,
 	Recipe_Select,
 	Delete_Building,
+	Reset_Workers,
 }
 
 Place_Object :: struct {
@@ -68,6 +69,9 @@ Delete_Building :: struct {
 	building_id: int,
 }
 Counter_View :: struct {
+	building_id: int,
+}
+Reset_Workers :: struct {
 	building_id: int,
 }
 
@@ -240,7 +244,7 @@ get_selected_entity_action_events_factory :: proc(
 		{"Recipe", Recipe_View{building_id = building_id}},
 		{"Delete", Delete_Building{building_id = building_id}},
 		{"AddRemove", Counter_View{building_id = building_id}},
-		{},
+		{"Reset\nWorkers", Reset_Workers{building_id = building_id}},
 		{},
 		{},
 	}
@@ -343,6 +347,8 @@ handle_button :: proc() -> bool {
 			g.current_extra_ui_state = .None
 		case Delete_Building:
 			delete_factory_from_world(d.building_id)
+		case Reset_Workers:
+			clear_all_travelers_from_building(d.building_id)
 		case:
 			fmt.println("unhandled?")
 		}

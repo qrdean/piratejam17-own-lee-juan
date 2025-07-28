@@ -31,9 +31,11 @@ Automation constructor
 [x] Create Raft Model
 [x] Create Port Model
 [x] Create 'Miner' Model
+[x] Ability to clear all workers current held items
+[] Create Manufacturer Model
 [] Implement less jank camera system
 [] Add a storage box workers can travel to  
-[] Ability to clear all workers current held items
+[] Create Turn In Model
 [] Remove 'Delete'
 [] Add a fuel/electricity component with fuel
 [] Clearer indication on which places a building is hooked up to currently

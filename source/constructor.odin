@@ -47,7 +47,11 @@ remove_qty_from_output :: proc(constructor: ^Constructor, key: ItemType, qty: i3
 	return qty
 }
 
-remove_qty_from_input_item_type :: proc(constructor: ^Constructor, key: ItemType, qty: i32) -> i32 {
+remove_qty_from_input_item_type :: proc(
+	constructor: ^Constructor,
+	key: ItemType,
+	qty: i32,
+) -> i32 {
 	if constructor.current_inputs[key] <= 0 {
 		return 0
 	}
@@ -118,6 +122,17 @@ get_current_construction_time :: proc(constructor: Constructor) -> f32 {
 	}
 }
 
+clear_all_travelers_from_building :: proc(building_id: int) {
+	for i in 0 ..< len(g.travel) {
+		if g.travel[i].building_id == building_id {
+			if g.travel[i].current_cargo.ItemType != .None {
+				g.item_pickup[g.travel[i].current_cargo.ItemType] += 1
+				g.travel[i].current_cargo.ItemType = .None
+			}
+		}
+	}
+}
+
 delete_factory_from_world :: proc(building_id: int) {
 	if len(g.travelPoints) < building_id {
 		return
@@ -147,6 +162,24 @@ delete_factory_from_world :: proc(building_id: int) {
 			g.travel[i].active = false
 		}
 	}
+
+	for i in 0 ..< len(g.cargoTravel) {
+		workers :=
+			g.travelPoints[g.cargoTravel[i].building_id].output_workers[g.cargoTravel[i].worker_id]
+		if (g.cargoTravel[i].building_id == building_id) {
+			for key in g.cargoTravel[i].current_cargo {
+				g.item_pickup[key] += g.cargoTravel[i].current_cargo[key]
+			}
+			g.cargoTravel[i].active = false
+		} else if (g.cargoTravel[i].current_target_id == building_id) {
+			for key in g.cargoTravel[i].current_cargo {
+				g.item_pickup[key] += g.cargoTravel[i].current_cargo[key]
+			}
+			g.cargoTravel[i].active = false
+		} else if (workers.destination_id == building_id) {
+			g.cargoTravel[i].active = false
+		}
+	}
 	g.selected = {}
 	clean_up_constructor(&g.travelPoints[building_id])
 	g.travelPoints[building_id] = {}
@@ -160,4 +193,18 @@ delete_factory_from_world :: proc(building_id: int) {
 	old_array := g.travel
 	g.travel = new_travel_array
 	delete(old_array)
+
+	new_travel_cargo_array: [dynamic]CargoTravelEntity
+	for i in 0 ..< len(g.cargoTravel) {
+		if g.cargoTravel[i].active {
+			append(&new_travel_cargo_array, g.cargoTravel[i])
+		}
+	}
+	old_cargo_array := g.cargoTravel
+	g.cargoTravel = new_travel_cargo_array
+	for &i in old_cargo_array {
+		// Clean up the [dynamic] arrays
+  	delete(i.current_cargo)
+	}
+	delete(old_cargo_array)
 }

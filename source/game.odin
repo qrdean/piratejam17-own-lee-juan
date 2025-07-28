@@ -148,6 +148,7 @@ AllResources :: struct {
 	raft_model:                rl.Model,
 	port_model:                rl.Model,
 	miner_model:               rl.Model,
+	turn_in_model:             rl.Model,
 }
 
 AllRecipes :: struct {
@@ -311,7 +312,7 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 	case .Manufacturer:
 		return g.allResources.rectangleModel
 	case .TurnInPoint:
-		return g.allResources.rectangleModel
+		return g.allResources.turn_in_model
 	case .Cat:
 		return g.allResources.cat
 	case .CanOpened:
@@ -1708,6 +1709,7 @@ game_init :: proc() {
 	miner_model := rl.LoadModel("assets/models/miner.glb")
 	port_model := rl.LoadModel("assets/models/port.glb")
 	raft_model := rl.LoadModel("assets/models/raft.glb")
+	turn_in_model := rl.LoadModel("assets/models/turn_in_point.glb")
 
 	resources := AllResources {
 		s_island_model            = s_island_model,
@@ -1746,6 +1748,7 @@ game_init :: proc() {
 		miner_model               = miner_model,
 		port_model                = port_model,
 		raft_model                = raft_model,
+		turn_in_model             = turn_in_model,
 	}
 
 	recipes := AllRecipes {
