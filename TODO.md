@@ -35,9 +35,14 @@ Automation constructor
 [x] Create Turn In Model
 [x] Implement less jank camera system
 [x] Create Manufacturer Model
-[] Fix bug where cats jossle back and forth if they have nothing to pick up
-[] Add a storage box workers can travel to  
+[x] Fix bug where cats jossle back and forth if they have nothing to pick up
+[x] Raylib logo
+[x] Add global model shader
 [] Remove 'Delete'
+[] Add Title Logo and stop from playing while on .Title Screen
+[] Fix issue where you can click "through" buttons. Need to take into account when we are hovering over buttons and stop the raycast from firing
+[] Fix 'too many' Output selections. Need to count the number of current workers on a node and only display that +1
+[] Add a storage box workers can travel to  
 [] Add a fuel/electricity component with fuel
 [] Clearer indication on which places a building is hooked up to currently
 [] Texture all the models

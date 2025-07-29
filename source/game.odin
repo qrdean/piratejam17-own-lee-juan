@@ -72,11 +72,13 @@ Game_Memory :: struct {
 	turn_in_building_id:    int,
 	game_state:             GameState,
 	reward_message:         RewardMessage,
+	logo:                   LogoInfo,
 }
 
 g: ^Game_Memory
 
 GameState :: enum {
+	Intro,
 	Title,
 	Play,
 	Pause,
@@ -113,6 +115,7 @@ RecipeInfo :: struct {
 }
 
 RewardMessage :: struct {
+	no_more_messages:    bool,
 	show_reward_message: bool,
 	title:               string,
 	message:             string,
@@ -138,6 +141,7 @@ AllResources :: struct {
 	waterModel:                rl.Model,
 	skyModel:                  rl.Model,
 	waterShader:               rl.Shader,
+	toonShader:                rl.Shader,
 	skyShader:                 rl.Shader,
 	groundQuad:                GroundQuad,
 	baseCubeModel:             rl.Model,
@@ -569,6 +573,12 @@ spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: 
 	g.travelPoints[building_id].worker_count += 1
 }
 
+set_model_shader :: proc(m: rl.Model, s: rl.Shader) {
+	for i in 0 ..< m.materialCount {
+		m.materials[i].shader = s
+	}
+}
+
 ////////////////////////////// UPDATES ////////////////////////////////
 
 update_shaders :: proc() {
@@ -585,6 +595,14 @@ update_shaders :: proc() {
 		g.allResources.waterShader,
 		camLoc,
 		&cameraPosition,
+		rl.ShaderUniformDataType.VEC3,
+	)
+	// SetShaderValue(shader, shader.locs[SHADER_LOC_VECTOR_VIEW], &camera.position.x, SHADER_UNIFORM_VEC3);
+
+	rl.SetShaderValue(
+		g.allResources.toonShader,
+		g.allResources.toonShader.locs[rl.ShaderLocationIndex.VECTOR_VIEW],
+		&cameraPosition.x,
 		rl.ShaderUniformDataType.VEC3,
 	)
 
@@ -962,7 +980,8 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 		} else {
 			// Handle pick up
 			if travel_entity.current_cargo.ItemType == .None {
-				if workers.destination_id != g.turn_in_building_id && g.travelPoints[travel_entity.building_id].factory_type == .Port {
+				if workers.destination_id != g.turn_in_building_id &&
+				   g.travelPoints[travel_entity.building_id].factory_type == .Port {
 					things :=
 						get_recipe_from_memory(g.travelPoints[workers.destination_id].recipe_type).input_map
 					factory := g.travelPoints[travel_entity.building_id]
@@ -1252,7 +1271,7 @@ add_to_inventory :: proc(item_type: ItemType, qty: i32) {
 	g.item_pickup[item_type] += qty
 }
 
-CAMERA_SPEED :: 100
+CAMERA_SPEED :: 50
 
 update_camera :: proc(camera: ^rl.Camera) {
 	if rl.IsKeyDown(.W) {
@@ -1268,10 +1287,10 @@ update_camera :: proc(camera: ^rl.Camera) {
 		rl.CameraMoveRight(camera, -rl.GetFrameTime() * CAMERA_SPEED, true)
 	}
 	if rl.IsKeyDown(.E) {
-		rl.CameraYaw(camera, -rl.GetFrameTime() * 5, true)
+		rl.CameraYaw(camera, -rl.GetFrameTime() * 3, true)
 	}
 	if rl.IsKeyDown(.Q) {
-		rl.CameraYaw(camera, rl.GetFrameTime() * 5, true)
+		rl.CameraYaw(camera, rl.GetFrameTime() * 3, true)
 	}
 	if rl.IsKeyDown(.SPACE) {
 		rl.CameraMoveUp(camera, rl.GetFrameTime() * CAMERA_SPEED)
@@ -1284,6 +1303,10 @@ update_camera :: proc(camera: ^rl.Camera) {
 }
 
 update :: proc() {
+	if g.game_state == .Intro {
+		logo_update(&g.logo)
+		return
+	}
 	g.some_number += 1
 	update_shaders()
 	g.mouseRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
@@ -1558,6 +1581,10 @@ draw_title :: proc() {
 }
 
 draw :: proc() {
+	if g.game_state == .Intro {
+		logo_draw(g.logo)
+		return
+	}
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.SKYBLUE)
 
@@ -1670,7 +1697,7 @@ draw :: proc() {
 		draw_keybindings_ui()
 	}
 
-	if g.reward_message.show_reward_message {
+	if g.reward_message.show_reward_message && !g.reward_message.no_more_messages {
 		draw_reward_ui(g.reward_message.title, g.reward_message.message)
 	}
 
@@ -1725,6 +1752,14 @@ game_init :: proc() {
 	inner_radius_addition: f32 = 3.5
 	outer_radius_addition: f32 = 5.
 
+	toon_shader_vs := fmt.ctprintf("assets/shaders/%s/toon2.vs", shader_version_folder)
+	toon_shader_fs := fmt.ctprintf("assets/shaders/%s/toon2.fs", shader_version_folder)
+	toon_shader := rl.LoadShader(toon_shader_vs, toon_shader_fs)
+	toon_shader.locs[rl.ShaderLocationIndex.MATRIX_MODEL] = rl.GetShaderLocation(
+		toon_shader,
+		"matModel",
+	)
+
 	s_radius: f32 = 10.
 	s_island_mesh := rl.GenMeshCylinder(s_radius, 5., 9.)
 	s_island_model := rl.LoadModelFromMesh(s_island_mesh)
@@ -1732,6 +1767,9 @@ game_init :: proc() {
 	s_island_sand_inner_model := rl.LoadModelFromMesh(s_island_sand_inner_mesh)
 	s_island_sand_outer_mesh := rl.GenMeshCylinder(s_radius + outer_radius_addition, 5., 9.)
 	s_island_sand_outer_model := rl.LoadModelFromMesh(s_island_sand_outer_mesh)
+	s_island_model.materials[0].shader = toon_shader
+	s_island_sand_inner_model.materials[0].shader = toon_shader
+	s_island_sand_outer_model.materials[0].shader = toon_shader
 
 	m_radius: f32 = 20.
 	m_island_mesh := rl.GenMeshCylinder(m_radius, 5., 9.)
@@ -1740,6 +1778,9 @@ game_init :: proc() {
 	m_island_sand_inner_model := rl.LoadModelFromMesh(m_island_sand_inner_mesh)
 	m_island_sand_outer_mesh := rl.GenMeshCylinder(m_radius + outer_radius_addition, 5., 9.)
 	m_island_sand_outer_model := rl.LoadModelFromMesh(m_island_sand_outer_mesh)
+	m_island_model.materials[0].shader = toon_shader
+	m_island_sand_inner_model.materials[0].shader = toon_shader
+	m_island_sand_outer_model.materials[0].shader = toon_shader
 
 	islands: [dynamic]Island_Entity
 	append(&islands, Island_Entity{island_size = .Small, position = rl.Vector3{5., -5., 5.}})
@@ -1797,6 +1838,28 @@ game_init :: proc() {
 	skyModel := rl.LoadModelFromMesh(rl.GenMeshCube(1., 1., 1.))
 	skyModel.materials[0].shader = skyShader
 
+	// outline_shader_vs := fmt.ctprintf("assets/shaders/%s/outline.vs", shader_version_folder)
+	// outline_shader_fs := fmt.ctprintf("assets/shaders/%s/outline.vs", shader_version_folder)
+	// outline_shader := rl.LoadShader("", outline_shader_fs)
+	// outline_size := 2.
+	// outline_color := [4]f32{1., 0., 0., 1.}
+	// texture_size := [2]f32{64., 64.}
+	//
+	// outline_size_loc := rl.GetShaderLocation(outline_shader, "outlineSize")
+	// outline_color_loc := rl.GetShaderLocation(outline_shader, "outlineColor")
+	// texture_size_loc := rl.GetShaderLocation(outline_shader, "textureSize")
+	//
+	// rl.SetShaderValue(outline_shader, outline_size_loc, &outline_size, rl.ShaderUniformDataType.FLOAT) 
+	// rl.SetShaderValue(outline_shader, outline_color_loc, &outline_color, rl.ShaderUniformDataType.VEC4) 
+	// rl.SetShaderValue(outline_shader, texture_size_loc, &texture_size, rl.ShaderUniformDataType.VEC2) 
+
+	// toon_shader_vs := fmt.ctprintf("assets/shaders/%s/toon.vs", shader_version_folder)
+	// toon_shader_fs := fmt.ctprintf("assets/shaders/%s/toon.fs", shader_version_folder)
+	// toon_shader := rl.LoadShader(toon_shader_vs, toon_shader_fs)
+	// rectModel.materials[0].shader = toon_shader
+
+	rectModel.materials[0].shader = toon_shader
+
 	baseCubeModel := rl.LoadModel("assets/models/basic_cube.glb")
 	unopened_can := rl.LoadModel("assets/models/unopened_can.glb")
 	opened_can := rl.LoadModel("assets/models/opened_can.glb")
@@ -1820,6 +1883,28 @@ game_init :: proc() {
 	turn_in_model := rl.LoadModel("assets/models/turn_in_point.glb")
 	manufacturer_model := rl.LoadModel("assets/models/manufacturer.glb")
 
+	set_model_shader(opened_can, toon_shader)
+	set_model_shader(unopened_can, toon_shader)
+	set_model_shader(nails, toon_shader)
+	set_model_shader(strips, toon_shader)
+	set_model_shader(flat_can, toon_shader)
+	set_model_shader(reinforced, toon_shader)
+	set_model_shader(ring, toon_shader)
+	set_model_shader(rotator, toon_shader)
+	set_model_shader(motor, toon_shader)
+	set_model_shader(helm, toon_shader)
+	set_model_shader(rutter, toon_shader)
+	set_model_shader(cat, toon_shader)
+	set_model_shader(propeller, toon_shader)
+	set_model_shader(construction_model, toon_shader)
+	set_model_shader(assembly_model, toon_shader)
+	set_model_shader(resource_model, toon_shader)
+	set_model_shader(miner_model, toon_shader)
+	set_model_shader(port_model, toon_shader)
+	set_model_shader(raft_model, toon_shader)
+	set_model_shader(turn_in_model, toon_shader)
+	set_model_shader(manufacturer_model, toon_shader)
+
 	resources := AllResources {
 		s_island_model            = s_island_model,
 		m_island_model            = m_island_model,
@@ -1833,6 +1918,7 @@ game_init :: proc() {
 		waterModel                = waterModel,
 		skyModel                  = skyModel,
 		waterShader               = waterShader,
+		toonShader                = toon_shader,
 		skyShader                 = skyShader,
 		groundQuad                = ground_quad,
 		baseCubeModel             = baseCubeModel,
@@ -1897,18 +1983,39 @@ game_init :: proc() {
 		port_cost         = get_model_cost(.Port),
 	}
 
+	logo := LogoInfo {
+		state                 = .One,
+		alpha                 = 1.,
+		frames_counter        = 0,
+		letters_count         = 0,
+		top_side_rec_width    = 16,
+		bottom_side_rec_width = 16,
+		right_side_rec_height = 16,
+		left_side_rec_height  = 16,
+	}
+
+	reward_messages := RewardMessage {
+		no_more_messages    = false,
+		show_reward_message = false,
+		title               = "",
+		message             = "",
+	}
+
 	g^ = Game_Memory {
-		run          = true,
-		some_number  = 100,
-		camera       = get_new_camera(),
-		allResources = resources,
-		all_recipes  = recipes,
-		all_goals    = goals,
-		all_costs    = costs,
-		player_mode  = PlayerMode.Viewing,
-		debug_info   = DebugInfo{},
-		turn_in_info = turn_in_info,
-		islands      = islands,
+		run            = true,
+		some_number    = 100,
+		camera         = get_new_camera(),
+		allResources   = resources,
+		all_recipes    = recipes,
+		all_goals      = goals,
+		all_costs      = costs,
+		player_mode    = PlayerMode.Viewing,
+		debug_info     = DebugInfo{},
+		turn_in_info   = turn_in_info,
+		islands        = islands,
+		logo           = logo,
+		game_state     = .Play,
+		reward_message = reward_messages,
 	}
 
 	g.item_pickup[ItemType.CanOpened] = 10

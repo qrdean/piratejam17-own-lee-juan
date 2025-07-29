@@ -717,6 +717,9 @@ draw_reward_ui :: proc(title, message: string) {
 	)
 
 	if result >= 0 {
+		if g.turn_in_info.goal_type == .Done {
+			g.reward_message.no_more_messages = true
+		}
 		g.reward_message.show_reward_message = false
 		g.reward_message.title = ""
 		g.reward_message.message = ""

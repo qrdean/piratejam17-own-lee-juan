@@ -1,7 +1,5 @@
 #version 300 es
 precision mediump float;
-// #version 100
-
 
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;
