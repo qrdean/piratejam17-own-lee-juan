@@ -20,24 +20,24 @@ get_goal :: proc(goal_type: GoalType) -> Goal {
 	case .TierOne:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanFlat] = 50
-		return {input_map = input_map, reward_text = "Recipe: Strips"}
+		return {input_map = input_map, reward_text = "Unlock Recipe: Strips"}
 	case .TierTwo:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanStrips] = 50
 		return {
 			input_map = input_map,
-			reward_text = "Recipe: Nails, Rings. Upgrade: Miner Speed Increase",
+			reward_text = "Unlock Recipe: Nails, Rings.\nUpgrade: Miner Speed Increase",
 		}
 	case .TierThree:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanNails] = 120
 		input_map[.CanRing] = 100
-		return {input_map = input_map, reward_text = "Building(s): Constructor, Port"}
+		return {input_map = input_map, reward_text = "Unlock Building(s): Constructor, Port"}
 	case .TierFour:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanReinforced] = 50
 		input_map[.CanRotator] = 25
-		return {input_map = input_map, reward_text = "Building: Assembler"}
+		return {input_map = input_map, reward_text = "Unlock Building: Assembler"}
 	case .TierFive:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanMotor] = 1
@@ -45,7 +45,7 @@ get_goal :: proc(goal_type: GoalType) -> Goal {
 		input_map[.CanHull] = 1
 		input_map[.CanRutter] = 1
 		input_map[.CanHelm] = 1
-		return {input_map = input_map, reward_text = "You Escape"}
+		return {input_map = input_map, reward_text = "You Escaped with Your Cats"}
 	case .Done:
 		return {}
 	}
@@ -68,6 +68,23 @@ get_goal_from_memory :: proc(goal_type: GoalType) -> Goal {
 		return {}
 	}
 	return {}
+}
+
+get_goal_and_message :: proc(goal_type: GoalType) -> (string, string) {
+	switch goal_type {
+	case .TierOne:
+	case .TierTwo:
+		return "TIER ONE COMPLETE", g.all_goals.tier_one.reward_text
+	case .TierThree:
+		return "TIER TWO COMPLETE", g.all_goals.tier_two.reward_text
+	case .TierFour:
+		return "TIER THREE COMPLETE", g.all_goals.tier_three.reward_text
+	case .TierFive:
+		return "TIER FOUR COMPLETE", g.all_goals.tier_four.reward_text
+	case .Done:
+		return "TIER FIVE COMPLETE", g.all_goals.tier_five.reward_text
+	}
+	return "", ""
 }
 
 get_next_goal :: proc(goal_type: GoalType) -> GoalType {

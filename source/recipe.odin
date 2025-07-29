@@ -133,7 +133,7 @@ get_recipe :: proc(recipe_type: RecipeType) -> Recipe {
 	case .CanRing:
 		input := make(map[ItemType]i32)
 		output := make(map[ItemType]i32)
-		input[.CanOpened] = 1
+		input[.CanFlat] = 1
 		output[.CanRing] = 1
 		construct_time: f32 = seconds_to_minute(3.)
 		return {input_map = input, output_map = output, construct_time = construct_time}

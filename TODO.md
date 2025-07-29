@@ -32,19 +32,23 @@ Automation constructor
 [x] Create Port Model
 [x] Create 'Miner' Model
 [x] Ability to clear all workers current held items
-[] Create Manufacturer Model
-[] Implement less jank camera system
+[x] Create Turn In Model
+[x] Implement less jank camera system
+[x] Create Manufacturer Model
+[] Fix bug where cats jossle back and forth if they have nothing to pick up
 [] Add a storage box workers can travel to  
-[] Create Turn In Model
 [] Remove 'Delete'
 [] Add a fuel/electricity component with fuel
 [] Clearer indication on which places a building is hooked up to currently
+[] Texture all the models
+[] need to add better ui
+[] add short tutorial
 
 Music
 Sound
-
 Title Screen
 Settings Menu
+
 
 Bugs
 [] Reset the Worker count on buildings when their output destination is deleted?

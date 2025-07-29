@@ -70,9 +70,18 @@ Game_Memory :: struct {
 	debug_info:             DebugInfo,
 	terrain_position:       rl.Vector3,
 	turn_in_building_id:    int,
+	game_state:             GameState,
+	reward_message:         RewardMessage,
 }
 
 g: ^Game_Memory
+
+GameState :: enum {
+	Title,
+	Play,
+	Pause,
+	KeyboardMenuOpen,
+}
 
 DebugInfo :: struct {
 	distance_info_1:   f32,
@@ -101,6 +110,12 @@ RayCollisionInfo :: struct {
 RecipeInfo :: struct {
 	building_id: int,
 	recipe_type: RecipeType,
+}
+
+RewardMessage :: struct {
+	show_reward_message: bool,
+	title:               string,
+	message:             string,
 }
 
 PlayerMode :: enum {
@@ -149,6 +164,7 @@ AllResources :: struct {
 	port_model:                rl.Model,
 	miner_model:               rl.Model,
 	turn_in_model:             rl.Model,
+	manufacturer_model:        rl.Model,
 }
 
 AllRecipes :: struct {
@@ -310,7 +326,7 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 	case .Assemble:
 		return g.allResources.assembly_model
 	case .Manufacturer:
-		return g.allResources.rectangleModel
+		return g.allResources.manufacturer_model
 	case .TurnInPoint:
 		return g.allResources.turn_in_model
 	case .Cat:
@@ -488,10 +504,10 @@ ui_camera :: proc() -> rl.Camera2D {
 
 get_new_camera :: proc() -> rl.Camera3D {
 	camera := rl.Camera{}
-	camera.position = rl.Vector3{0., 5., 0.} // Camera position
-	camera.target = rl.Vector3{5.0, 0.0, 5.0} // Camera looking at point
+	camera.position = rl.Vector3{-10., 10., -10.} // Camera position
+	camera.target = rl.Vector3{0.0, 0.0, 0.0} // Camera looking at point
 	camera.up = rl.Vector3{0.0, 1.0, 0.0} // Camera up vector (rotation towards target)
-	camera.fovy = 45.0 // Camera field-of-view Y
+	camera.fovy = 60.0 // Camera field-of-view Y
 	camera.projection = rl.CameraProjection.PERSPECTIVE // Camera projection type
 
 	return camera
@@ -945,33 +961,61 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 			travel_entity.current_target_id = workers.origin_id
 		} else {
 			// Handle pick up
+
 			if travel_entity.current_cargo.ItemType == .None {
-				has_less_than_5 := false
-				for key in g.travelPoints[travel_entity.building_id].current_outputs {
-					if g.travelPoints[travel_entity.building_id].current_outputs[key] < 5 {
-						has_less_than_5 = true
-						break
+				if workers.destination_id != g.turn_in_building_id && g.travelPoints[travel_entity.building_id].factory_type == .Port {
+					things :=
+						get_recipe_from_memory(g.travelPoints[workers.destination_id].recipe_type).input_map
+					factory := g.travelPoints[travel_entity.building_id]
+					for valid_key in things {
+						for output_key in factory.current_outputs {
+							if valid_key == output_key {
+								if factory.current_outputs[output_key] > 0 {
+									g.travelPoints[travel_entity.building_id].current_outputs[output_key] -=
+									1
+									travel_entity.current_cargo.ItemType = output_key
+									travel_entity.current_cargo.position_offset = rl.Vector3 {
+										0.,
+										1.,
+										0.,
+									}
+									travel_entity.current_cargo.color = rl.WHITE
+								}
+							}
+						}
 					}
-				}
-				if travel_entity.worker_id ==
-					   g.travelPoints[travel_entity.current_target_id].current_pick_worker ||
-				   !has_less_than_5 {
-					factory := g.travelPoints[travel_entity.current_target_id]
-					for key in factory.current_outputs {
-						if g.travelPoints[travel_entity.current_target_id].current_outputs[key] >
-						   0 {
-							g.travelPoints[travel_entity.current_target_id].current_outputs[key] -=
-							1
-							travel_entity.current_cargo.ItemType = key
-							travel_entity.current_cargo.position_offset = rl.Vector3{0., 1., 0.}
-							travel_entity.current_cargo.color = rl.WHITE
+				} else {
+					has_less_than_5 := false
+					for key in g.travelPoints[travel_entity.building_id].current_outputs {
+						if g.travelPoints[travel_entity.building_id].current_outputs[key] < 5 {
+							has_less_than_5 = true
 							break
 						}
 					}
-					g.travelPoints[travel_entity.building_id].current_pick_worker += 1
-					if g.travelPoints[travel_entity.building_id].current_pick_worker >
-					   g.travelPoints[travel_entity.building_id].worker_count - 1 {
-						g.travelPoints[travel_entity.building_id].current_pick_worker = 0
+					if travel_entity.worker_id ==
+						   g.travelPoints[travel_entity.current_target_id].current_pick_worker ||
+					   !has_less_than_5 {
+						factory := g.travelPoints[travel_entity.current_target_id]
+						for key in factory.current_outputs {
+							if g.travelPoints[travel_entity.current_target_id].current_outputs[key] >
+							   0 {
+								g.travelPoints[travel_entity.current_target_id].current_outputs[key] -=
+								1
+								travel_entity.current_cargo.ItemType = key
+								travel_entity.current_cargo.position_offset = rl.Vector3 {
+									0.,
+									1.,
+									0.,
+								}
+								travel_entity.current_cargo.color = rl.WHITE
+								break
+							}
+						}
+						g.travelPoints[travel_entity.building_id].current_pick_worker += 1
+						if g.travelPoints[travel_entity.building_id].current_pick_worker >
+						   g.travelPoints[travel_entity.building_id].worker_count - 1 {
+							g.travelPoints[travel_entity.building_id].current_pick_worker = 0
+						}
 					}
 				}
 			}
@@ -1159,7 +1203,7 @@ handle_selecting_update :: proc() {
 			if g.current_output_info.collision_info {
 				g.player_mode = .Viewing
 				g.current_extra_ui_state = .None
-				rl.DisableCursor()
+				// rl.DisableCursor()
 				g.travelPoints[i].color = g.travelPoints[i].original_color
 
 				if g.current_output_info.output_type == .Sea {
@@ -1171,6 +1215,10 @@ handle_selecting_update :: proc() {
 				}
 			}
 		}
+	}
+
+	if rl.IsKeyPressed(.B) {
+		g.player_mode = .Editing
 	}
 }
 
@@ -1203,6 +1251,37 @@ add_to_inventory :: proc(item_type: ItemType, qty: i32) {
 	g.item_pickup[item_type] += qty
 }
 
+CAMERA_SPEED :: 100
+
+update_camera :: proc(camera: ^rl.Camera) {
+	if rl.IsKeyDown(.W) {
+		rl.CameraMoveForward(camera, rl.GetFrameTime() * CAMERA_SPEED, true)
+	}
+	if rl.IsKeyDown(.S) {
+		rl.CameraMoveForward(camera, -rl.GetFrameTime() * CAMERA_SPEED, true)
+	}
+	if rl.IsKeyDown(.D) {
+		rl.CameraMoveRight(camera, rl.GetFrameTime() * CAMERA_SPEED, true)
+	}
+	if rl.IsKeyDown(.A) {
+		rl.CameraMoveRight(camera, -rl.GetFrameTime() * CAMERA_SPEED, true)
+	}
+	if rl.IsKeyDown(.E) {
+		rl.CameraYaw(camera, -rl.GetFrameTime() * 5, true)
+	}
+	if rl.IsKeyDown(.Q) {
+		rl.CameraYaw(camera, rl.GetFrameTime() * 5, true)
+	}
+	if rl.IsKeyDown(.SPACE) {
+		rl.CameraMoveUp(camera, rl.GetFrameTime() * CAMERA_SPEED)
+	}
+	if rl.IsKeyDown(.C) {
+		rl.CameraMoveUp(camera, -rl.GetFrameTime() * CAMERA_SPEED)
+	}
+
+	rl.CameraMoveForward(camera, rl.GetMouseWheelMove() * rl.GetFrameTime() * CAMERA_SPEED, false)
+}
+
 update :: proc() {
 	g.some_number += 1
 	update_shaders()
@@ -1222,7 +1301,8 @@ update :: proc() {
 
 	switch g.player_mode {
 	case .Viewing:
-		rl.UpdateCamera(&g.camera, rl.CameraMode.FREE)
+		update_camera(&g.camera)
+	// rl.UpdateCamera(&g.camera, rl.CameraMode.CUSTOM)
 	case .Editing:
 		handle_editor_update()
 	case .Placing:
@@ -1245,6 +1325,10 @@ update :: proc() {
 			if calculate_goals(g.travelPoints[i], g.turn_in_info.goal_type) {
 				// clear(&g.turn_in_info.current_count_map)
 				g.turn_in_info.goal_type = get_next_goal(g.turn_in_info.goal_type)
+				title, message := get_goal_and_message(g.turn_in_info.goal_type)
+				g.reward_message.show_reward_message = true
+				g.reward_message.title = title
+				g.reward_message.message = message
 			}
 		} else if g.travelPoints[i].factory_type == .Port {
 			for key in g.travelPoints[i].current_inputs {
@@ -1281,11 +1365,19 @@ update :: proc() {
 			unhighlight_all_travelers()
 		}
 
-		if g.player_mode == .Viewing {rl.DisableCursor()} else {rl.EnableCursor()}
+		// if g.player_mode == .Viewing {rl.DisableCursor()} else {rl.EnableCursor()}
 	}
 
 	if rl.IsKeyPressed(.I) {
 		g.show_inventory = !g.show_inventory
+	}
+
+	if rl.IsKeyPressed(.K) {
+		if g.game_state == .KeyboardMenuOpen {
+			g.game_state = .Play
+		} else {
+			g.game_state = .KeyboardMenuOpen
+		}
 	}
 
 	if rl.IsKeyPressed(.P) {
@@ -1293,6 +1385,8 @@ update :: proc() {
 		debug_end_goal()
 		debug_many_items()
 	}
+
+	if rl.IsKeyPressed(.H) {g.reward_message.show_reward_message = true}
 
 
 	wave := math.sin_f32(f32(rl.GetTime()) * 0.9) * 0.9 // slow, subtle vertical motion
@@ -1446,6 +1540,22 @@ draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
 	}
 }
 
+draw_title :: proc() {
+	rl.GuiEnable()
+	if rl.GuiButton(
+		rl.Rectangle{f32(rl.GetScreenWidth() / 2), f32(rl.GetScreenHeight() / 2), 128, 50},
+		"Play",
+	) {
+		g.game_state = .Play
+	}
+	if rl.GuiButton(
+		rl.Rectangle{f32(rl.GetScreenWidth() / 2), f32(rl.GetScreenHeight() / 2 + 64), 128, 50},
+		"Quit",
+	) {
+		fmt.println("quit")
+	}
+}
+
 draw :: proc() {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.SKYBLUE)
@@ -1513,23 +1623,11 @@ draw :: proc() {
 		}
 	}
 
-	// for i in 0 ..< len(g.debug_ray) {
-	// 	rl.DrawRay(g.debug_ray[i], rl.YELLOW)
-	// }
-
 	rl.EndBlendMode()
 	rl.EndMode3D()
 
 	rl.BeginMode2D(ui_camera())
-	travel_point_info: FactoryEntity
-	if in_model_list(g.selected.type) {
-		travel_point_info = g.travelPoints[g.selected.id]
-	}
-
 	debug_info := []cstring {
-		// fmt.ctprintf("Mouse Pos %v\n", rl.GetMousePosition()),
-		// fmt.ctprintf("Mouse Collision %v\n", g.current_collision_info.point),
-		// fmt.ctprintf("Player Mode %v\n", g.player_mode),
 		fmt.ctprintf(
 			"Current Goal\n%v\n",
 			get_item_map_with_two_maps_text(
@@ -1537,7 +1635,6 @@ draw :: proc() {
 				(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
 			),
 		),
-		// fmt.ctprintf("\nInventory\n%v\n", get_item_map_text_new_line(g.item_pickup)),
 	}
 	if g.show_inventory {
 		debug_info = []cstring {
@@ -1564,13 +1661,23 @@ draw :: proc() {
 	draw_debug_info(debug_info)
 	rl.EndMode2D()
 
+	if g.game_state == .Title {
+		draw_title()
+	}
+
+	if g.game_state == .KeyboardMenuOpen {
+		draw_keybindings_ui()
+	}
+
+	if g.reward_message.show_reward_message {
+		draw_reward_ui(g.reward_message.title, g.reward_message.message)
+	}
+
 	if g.player_mode == .Editing {
 		draw_button_ui(g.selected)
 		draw_entity_info_ui(g.selected)
 		draw_default_button_ui()
 	}
-
-
 	rl.EndDrawing()
 }
 
@@ -1608,7 +1715,7 @@ game_init_window :: proc() {
 
 @(export)
 game_init :: proc() {
-	rl.DisableCursor()
+	// rl.DisableCursor()
 	g = new(Game_Memory)
 
 	terrainMesh := rl.GenMeshPlane(10., 10., 10., 5.)
@@ -1710,6 +1817,7 @@ game_init :: proc() {
 	port_model := rl.LoadModel("assets/models/port.glb")
 	raft_model := rl.LoadModel("assets/models/raft.glb")
 	turn_in_model := rl.LoadModel("assets/models/turn_in_point.glb")
+	manufacturer_model := rl.LoadModel("assets/models/manufacturer.glb")
 
 	resources := AllResources {
 		s_island_model            = s_island_model,
@@ -1748,6 +1856,7 @@ game_init :: proc() {
 		miner_model               = miner_model,
 		port_model                = port_model,
 		raft_model                = raft_model,
+		manufacturer_model        = manufacturer_model,
 		turn_in_model             = turn_in_model,
 	}
 

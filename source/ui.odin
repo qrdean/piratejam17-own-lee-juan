@@ -109,18 +109,16 @@ get_default_actions :: proc() -> Selected_Entity_Action_Events {
 	case .TierThree:
 		constructor = Event{}
 		assembler = Event{}
-		port = Event{}
 	case .TierFour:
 		assembler = Event{}
-		port = Event{}
 	case .TierFive:
 	}
 	return Selected_Entity_Action_Events {
 		miner,
 		transformer,
 		constructor,
-		assembler,
 		port,
+		assembler,
 		{},
 		{},
 		{},
@@ -456,7 +454,7 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 	)
 	rl.GuiSpinner(
 		rl.Rectangle{22, f32(rl.GetScreenHeight()) - 305, 120, 30},
-		"text",
+		"",
 		&spinner_current_val,
 		-250,
 		250,
@@ -673,4 +671,54 @@ draw_entity_info_ui :: proc(selected: SelectedEntity) {
 		1024,
 		false,
 	)
+}
+
+draw_keybindings_ui :: proc() {
+	font_size: i32 = 16
+	starting_position := rl.Rectangle {
+		f32(rl.GetScreenWidth() / 2) - 230,
+		f32(rl.GetScreenHeight() / 2) - 230,
+		460,
+		460,
+	}
+	rl.GuiPanel(starting_position, "Keybindings - K to Close")
+	next_pos := rl.Vector2{starting_position.x + 25, starting_position.y + 30}
+	rl.DrawText("W - Camera Forward", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("S - Camera Back", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("D - Camera Pan Right", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("A - Camera Pan Left", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("E - Camera Rotate Right", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("Q - Camera Rotate Left", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("SPACE - Camera Up", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("C - Camera Down", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("R - Build Mode", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("B - Cancel Action", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("I - Toggle Inventory", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+	next_pos = next_pos + rl.Vector2{0, 25}
+	rl.DrawText("K - Keyboard Shortcuts", i32(next_pos.x), i32(next_pos.y), font_size, rl.BLACK)
+}
+
+draw_reward_ui :: proc(title, message: string) {
+	result := rl.GuiMessageBox(
+		rl.Rectangle{f32(rl.GetScreenWidth() / 2), f32(rl.GetScreenHeight() / 2), 240, 120},
+		fmt.ctprint(title),
+		fmt.ctprint(message),
+		"OK",
+	)
+
+	if result >= 0 {
+		g.reward_message.show_reward_message = false
+		g.reward_message.title = ""
+		g.reward_message.message = ""
+	}
 }
