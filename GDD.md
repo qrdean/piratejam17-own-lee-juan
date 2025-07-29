@@ -1,42 +1,74 @@
-# GDD Pirate Jam 17
-## By qtipbluedog
+# cat-is-factory design doc
+## by qtipbluedog for pirate software jam 17
 
+## introduction
 
-### Theme 
-Only One
+#### game pitch
+only have one type of resource to work with. you are trying to make that resource into a bunch of different things
 
-### Potential Names
-Cat-Is-Factory
+### inspirations
+my smelly cat
+satisfactory
+factorio
+animal crossing
 
-#### Ideas
-- Only have one type of resource to work with. You are trying to make that resource into a bunch of things. So kinda like an automation kinda thing
+### player experience
+player start on island and has to make cans of cat food into various different objects. as new buildings/ recipes are unlocked the player has to make those things into a bunch of things.
 
-### Inspirations
-My smelly cat
-Satisfactory
-Factorio
+### platform
+web
 
-### Mechanics
-'Mining' from one resource you transport it into another resource.
-The puzzle comes from handling the routing of said resources and trading them off.
+### development software
+raylib - [https://www.raylib.com/index.html]
+odin - [https://odin-lang.org/docs/overview/]
+blender - [https://www.blender.org/]
+studio one - [https://www.presonus.com/pages/studio-one-pro]
 
-'Workers' pick up the items from a resource chain and send it off there can only be X number of workers per chain/only pick one at a time 
-'Workers' can pick up the output of a transform and go to another transform or drop off zone.
-Once you hit a milestone you unlock another set of recipes to use
+### genre
+factory sim
 
-Some resources are used to build buildings
-There is a set number of workers.
+### target audience
+nerds that like logistics
 
-Goal is to get a working boat to get off the island with all your cats
+## concept
 
-### Theme
-Island Theme
-Could be you were with a plane with a 1000's of cats. 
-When you crashed you have a bunch of cats and cat food lying around.
-Using the crashed parts you are able to automate the usage of cat food to create different items
-Use all these parts to build a boat to get home 
+### gameplay overview
+the player starts off with a limited number of options on what to do. this is to guide the player into how to "transform" objects in the world. as the game goes on logistics will increase.
+
+### theme interpretation
+only one resource to work with
+
+### mechanics
+'mining' from one resource you transport it into another resource.
+the puzzle comes from handling the routing of said resources and trading them off.
+
+'workers' pick up the items from a resource chain and send it off there can only be x number of workers per chain/only pick one at a time 
+'workers' can pick up the output of a transform and go to another transform or drop off zone.
+once you hit a milestone you unlock another set of recipes to use
+
+some resources are used to build buildings
+there is a set number of workers.
+
+goal is to get a working boat to get off the island with all your cats
+
+## art design
+went with a simplified color pallette and low poly aesthetic to give off that retro feel.
+
+## audio
+simple calm music. simple select button tones
+
+## ui
+very basic ui driving the gameplay. all buttons in the game will allow the player to place buildings, add more cat workers, and change their output 
+
+### controls
+wasd - move the camera
+eq - rotate camera
+i - show inventory
+k - keyboard shortcuts
 
 ### Recipe Ideas
+(some of these aren't implemented obviously)
+Spoilers for all the recipes in the game
 E.g.
 From catfood you crush up the cat food to create sand.
 From catfood you feed it to the cats and concrete

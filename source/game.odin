@@ -961,7 +961,6 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 			travel_entity.current_target_id = workers.origin_id
 		} else {
 			// Handle pick up
-
 			if travel_entity.current_cargo.ItemType == .None {
 				if workers.destination_id != g.turn_in_building_id && g.travelPoints[travel_entity.building_id].factory_type == .Port {
 					things :=
@@ -1020,7 +1019,9 @@ calculate_traveler_cargo :: proc(travel_entity: ^TravelEntity) {
 				}
 			}
 			// Next target
-			travel_entity.current_target_id = workers.destination_id
+			if travel_entity.current_cargo.ItemType != .None {
+				travel_entity.current_target_id = workers.destination_id
+			}
 		}
 	}
 }

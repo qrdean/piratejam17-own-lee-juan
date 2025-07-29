@@ -20,24 +20,24 @@ get_goal :: proc(goal_type: GoalType) -> Goal {
 	case .TierOne:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanFlat] = 50
-		return {input_map = input_map, reward_text = "Unlock Recipe: Strips"}
+		return {input_map = input_map, reward_text = "Unlock: Strips"}
 	case .TierTwo:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanStrips] = 50
 		return {
 			input_map = input_map,
-			reward_text = "Unlock Recipe: Nails, Rings.\nUpgrade: Miner Speed Increase",
+			reward_text = "Unlock: Nails, Rings.\nUpgrade: Miner Speed Increase",
 		}
 	case .TierThree:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanNails] = 120
 		input_map[.CanRing] = 100
-		return {input_map = input_map, reward_text = "Unlock Building(s): Constructor, Port"}
+		return {input_map = input_map, reward_text = "Unlock: Constructor, Port"}
 	case .TierFour:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanReinforced] = 50
 		input_map[.CanRotator] = 25
-		return {input_map = input_map, reward_text = "Unlock Building: Assembler"}
+		return {input_map = input_map, reward_text = "Unlock: Assembler"}
 	case .TierFive:
 		input_map := make(map[ItemType]i32)
 		input_map[.CanMotor] = 1
@@ -45,7 +45,7 @@ get_goal :: proc(goal_type: GoalType) -> Goal {
 		input_map[.CanHull] = 1
 		input_map[.CanRutter] = 1
 		input_map[.CanHelm] = 1
-		return {input_map = input_map, reward_text = "You Escaped with Your Cats"}
+		return {input_map = input_map, reward_text = "You Escaped with Your Cats!"}
 	case .Done:
 		return {}
 	}
