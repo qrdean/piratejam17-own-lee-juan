@@ -38,6 +38,7 @@ Automation constructor
 [x] Fix bug where cats jossle back and forth if they have nothing to pick up
 [x] Raylib logo
 [x] Add global model shader
+[x] Music
 [] Remove 'Delete'
 [] Add Title Logo and stop from playing while on .Title Screen
 [] Fix issue where you can click "through" buttons. Need to take into account when we are hovering over buttons and stop the raycast from firing
@@ -49,10 +50,9 @@ Automation constructor
 [] need to add better ui
 [] add short tutorial
 
-Music
-Sound
-Title Screen
-Settings Menu
+[] Sound
+[] Title Screen
+[] Settings Menu (just need music and sound toggles)
 
 
 Bugs
