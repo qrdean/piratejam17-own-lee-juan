@@ -8,7 +8,6 @@ out vec4 finalColor;
 uniform float time;
 uniform vec3 cameraPos;
 
-
 void main()
 {
     // Simple sine wave distortion to simulate ripples
@@ -21,8 +20,11 @@ void main()
     float distance = length(fragPosition - cameraPos);
     float depthFactor = clamp((distance - 500.0) / 6000.0, 0.0, 1.0); // adjust range
 
-    vec3 shallowColor = vec3(0.0, 0.4, 1.0);  // near camera, lighter
-    vec3 deepColor    = vec3(0.0, 0.1, 0.6);  // far from camera, darker
+    // vec3 shallowColor = vec3(161.0/255.0, 205.0/255.0, 176.0/255.0);
+    vec3 shallowColor = vec3(112.0/255.0, 147.0/255.0, 149.0/255.0);
+    // vec3 shallowColor = vec3(74.0/255.0, 120.0/255.0, 123.0/255.0);
+    
+    vec3 deepColor = vec3(74.0/255.0, 120.0/255.0, 123.0/255.0);
 
     vec3 waterColor = mix(shallowColor, deepColor, depthFactor) * brightness;
 

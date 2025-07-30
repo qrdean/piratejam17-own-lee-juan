@@ -38,10 +38,10 @@ Automation constructor
 [x] Fix bug where cats jossle back and forth if they have nothing to pick up
 [x] Raylib logo
 [x] Add global model shader
-[x] Music
+[x] Music (really wanna change it tho dont like what I made)
+[x] Fix issue where you can click "through" buttons. Need to take into account when we are hovering over buttons and stop the raycast from firing
 [] Remove 'Delete'
 [] Add Title Logo and stop from playing while on .Title Screen
-[] Fix issue where you can click "through" buttons. Need to take into account when we are hovering over buttons and stop the raycast from firing
 [] Fix 'too many' Output selections. Need to count the number of current workers on a node and only display that +1
 [] Add a storage box workers can travel to  
 [] Add a fuel/electricity component with fuel

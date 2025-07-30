@@ -74,6 +74,7 @@ Game_Memory :: struct {
 	reward_message:         RewardMessage,
 	logo:                   LogoInfo,
 	music:                  rl.Music,
+	mouseOverButton:        bool,
 }
 
 g: ^Game_Memory
@@ -655,31 +656,33 @@ handle_entity_selection :: proc(three_dee: ThreeDeeEntity, id: int, spawn_model_
 }
 
 handle_editor_update :: proc() {
-	if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
-		hit_anything := false
-		g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
+	if !g.mouseOverButton {
+		if rl.IsMouseButtonPressed(rl.MouseButton.LEFT) {
+			hit_anything := false
+			g.currentRay = rl.GetScreenToWorldRay(rl.GetMousePosition(), g.camera)
 
-		for i in 0 ..< len(g.travelPoints) {
-			if !g.travelPoints[i].active {continue}
-			travelPoint := g.travelPoints[i]
-			rCollision := handle_collisions_three_dee(travelPoint)
-			if rCollision.hit {
-				#partial switch travelPoint.factory_type {
-				case .TurnIn:
-				case .Port:
-					handle_port_selection(travelPoint, i, .Raft)
-				case:
-					handle_entity_selection(travelPoint, i, .Cat)
+			for i in 0 ..< len(g.travelPoints) {
+				if !g.travelPoints[i].active {continue}
+				travelPoint := g.travelPoints[i]
+				rCollision := handle_collisions_three_dee(travelPoint)
+				if rCollision.hit {
+					#partial switch travelPoint.factory_type {
+					case .TurnIn:
+					case .Port:
+						handle_port_selection(travelPoint, i, .Raft)
+					case:
+						handle_entity_selection(travelPoint, i, .Cat)
+					}
+					// if travelPoint.factory_type == .TurnIn {
+					// 	// Do something else
+					// } else {
+					// 	handle_entity_selection(travelPoint, i, .Cat)
+					// }
 				}
-				// if travelPoint.factory_type == .TurnIn {
-				// 	// Do something else
-				// } else {
-				// 	handle_entity_selection(travelPoint, i, .Cat)
-				// }
-			}
-			g.travelPoints[i].selected = rCollision.hit
-			if !hit_anything && rCollision.hit {
-				hit_anything = true
+				g.travelPoints[i].selected = rCollision.hit
+				if !hit_anything && rCollision.hit {
+					hit_anything = true
+				}
 			}
 		}
 	}
@@ -1538,29 +1541,29 @@ draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
 			g.allResources.s_island_sand_outer_model,
 			position - rl.Vector3{0., 1., 0.},
 			1.,
-			rl.BEIGE,
+			LIGHT_WHITE,
 		)
 		rl.DrawModel(
 			g.allResources.s_island_sand_inner_model,
 			position - rl.Vector3{0., 0.5, 0.},
 			1.,
-			rl.BEIGE,
+			LIGHT_WHITE,
 		)
-		rl.DrawModel(g.allResources.s_island_model, position, 1., rl.DARKGREEN)
+		rl.DrawModel(g.allResources.s_island_model, position, 1., LIGHT_GREEN)
 	case .Medium:
 		rl.DrawModel(
 			g.allResources.m_island_sand_outer_model,
 			position - rl.Vector3{0., 1., 0.},
 			1.,
-			rl.BEIGE,
+			LIGHT_WHITE,
 		)
 		rl.DrawModel(
 			g.allResources.m_island_sand_inner_model,
 			position - rl.Vector3{0., 0.5, 0.},
 			1.,
-			rl.BEIGE,
+			LIGHT_WHITE,
 		)
-		rl.DrawModel(g.allResources.m_island_model, position, 1., rl.DARKGREEN)
+		rl.DrawModel(g.allResources.m_island_model, position, 1., LIGHT_GREEN)
 
 	}
 }
@@ -1606,6 +1609,7 @@ draw :: proc() {
 	// draw_island_model(.Medium, rl.Vector3{50., -5., 5.})
 
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., rl.WHITE)
+	// rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., AQUA_BLUE)
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
 
 	for i in 0 ..< len(g.resourceNodes) {
@@ -1703,9 +1707,10 @@ draw :: proc() {
 	}
 
 	if g.player_mode == .Editing {
-		draw_button_ui(g.selected)
+		encountered := draw_button_ui(g.selected)
 		draw_entity_info_ui(g.selected)
-		draw_default_button_ui()
+		encountered_2 := draw_default_button_ui()
+		g.mouseOverButton = encountered || encountered_2
 	}
 	rl.EndDrawing()
 }
@@ -2031,8 +2036,8 @@ game_init :: proc() {
 			wareHouseEntity := FactoryEntity {
 				position        = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
 				type            = ModelType.Rectangle,
-				color           = rl.ORANGE,
-				original_color  = rl.ORANGE,
+				color           = DARK_GREEN,
+				original_color  = DARK_GREEN,
 				highlight_color = rl.GREEN,
 				bb              = rectBB,
 				recipe_type     = .None,
@@ -2050,8 +2055,8 @@ game_init :: proc() {
 			wareHouseEntity := FactoryEntity {
 				position        = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
 				type            = ModelType.Rectangle,
-				color           = rl.ORANGE,
-				original_color  = rl.ORANGE,
+				color           = DARK_GREEN,
+				original_color  = DARK_GREEN,
 				highlight_color = rl.GREEN,
 				bb              = rectBB,
 				recipe_type     = .None,
@@ -2094,7 +2099,7 @@ game_init :: proc() {
 	}
 	append(&g.resourceNodes, resource_node)
 
- 	rl.PlayMusicStream(g.music)
+	rl.PlayMusicStream(g.music)
 
 	game_hot_reloaded(g)
 }

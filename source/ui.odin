@@ -248,30 +248,52 @@ get_selected_entity_action_events_factory :: proc(
 	}
 }
 
-get_selected_entity_actions_events_output :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Land}},
-		{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Land}},
-		{"Output 3", Select_Target{output_id = 2, output_type = Output_Type.Land}},
-		{"Output 4", Select_Target{output_id = 3, output_type = Output_Type.Land}},
-		{"Output 5", Select_Target{output_id = 4, output_type = Output_Type.Land}},
-		{"Output 6", Select_Target{output_id = 5, output_type = Output_Type.Land}},
-		{"Output 7", Select_Target{output_id = 6, output_type = Output_Type.Land}},
-		{"Output 8", Select_Target{output_id = 7, output_type = Output_Type.Land}},
+get_selected_entity_actions_events_output :: proc(count: int) -> Selected_Entity_Action_Events {
+	event := [8]Event{}
+	for i in 0 ..< count {
+		b := strings.builder_make(context.temp_allocator)
+		fmt.sbprintf(&b, "Output %d", i + 1)
+		event[i].ButtonText = strings.to_string(b)
+		event[i].Data = Select_Target {
+			output_id   = i,
+			output_type = Output_Type.Land,
+		}
 	}
+	return event
+	// return Selected_Entity_Action_Events {
+	// 	{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Land}},
+	// 	{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Land}},
+	// 	{"Output 3", Select_Target{output_id = 2, output_type = Output_Type.Land}},
+	// 	{"Output 4", Select_Target{output_id = 3, output_type = Output_Type.Land}},
+	// 	{"Output 5", Select_Target{output_id = 4, output_type = Output_Type.Land}},
+	// 	{"Output 6", Select_Target{output_id = 5, output_type = Output_Type.Land}},
+	// 	{"Output 7", Select_Target{output_id = 6, output_type = Output_Type.Land}},
+	// 	{"Output 8", Select_Target{output_id = 7, output_type = Output_Type.Land}},
+	// }
 }
 
-get_selected_entity_actions_events_port_land_output :: proc() -> Selected_Entity_Action_Events {
-	return Selected_Entity_Action_Events {
-		{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Land}},
-		{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Land}},
-		{"Output 3", Select_Target{output_id = 2, output_type = Output_Type.Land}},
-		{"Output 4", Select_Target{output_id = 3, output_type = Output_Type.Land}},
-		{},
-		{},
-		{},
-		{},
+get_selected_entity_actions_events_port_land_output :: proc(count: int) -> Selected_Entity_Action_Events {
+	event := [8]Event{}
+	for i in 0 ..< count {
+		b := strings.builder_make(context.temp_allocator)
+		fmt.sbprintf(&b, "Output %d", i + 1)
+		event[i].ButtonText = strings.to_string(b)
+		event[i].Data = Select_Target {
+			output_id   = i,
+			output_type = Output_Type.Land,
+		}
 	}
+	return event
+	// return Selected_Entity_Action_Events {
+	// 	{"Output 1", Select_Target{output_id = 0, output_type = Output_Type.Land}},
+	// 	{"Output 2", Select_Target{output_id = 1, output_type = Output_Type.Land}},
+	// 	{"Output 3", Select_Target{output_id = 2, output_type = Output_Type.Land}},
+	// 	{"Output 4", Select_Target{output_id = 3, output_type = Output_Type.Land}},
+	// 	{},
+	// 	{},
+	// 	{},
+	// 	{},
+	// }
 }
 
 get_selected_entity_actions_events_port_sea_output :: proc() -> Selected_Entity_Action_Events {
@@ -365,7 +387,7 @@ get_gui_panel_rectangle_position :: proc(x, y: f32) -> rl.Rectangle {
 	return rl.Rectangle{x, y, 300, 132}
 }
 
-draw_default_button_ui :: proc() {
+draw_default_button_ui :: proc() -> bool {
 	rl.GuiEnable()
 	rl.GuiPanel(
 		get_gui_panel_rectangle_position(
@@ -377,6 +399,7 @@ draw_default_button_ui :: proc() {
 	)
 
 	actions := get_default_actions()
+	mouse_encountered := false
 	for i in 0 ..< len(actions) {
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
 		gui_button_rectangle.x = gui_button_rectangle.x + (f32(rl.GetScreenWidth()) - 340)
@@ -400,9 +423,10 @@ draw_default_button_ui :: proc() {
 			if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", actions[i].ButtonText)) {
 				g.button_event = actions[i]
 			}
-			#partial switch d in actions[i].Data {
-			case Place_Object:
-				if rl.CheckCollisionPointRec(rl.GetMousePosition(), gui_button_rectangle) {
+			g.mouseOverButton = false
+			if rl.CheckCollisionPointRec(rl.GetMousePosition(), gui_button_rectangle) {
+				#partial switch d in actions[i].Data {
+				case Place_Object:
 					// Do something like display another button or section
 					rl.DrawText(
 						fmt.ctprintf(
@@ -415,19 +439,25 @@ draw_default_button_ui :: proc() {
 						rl.DARKGRAY,
 					)
 				}
+				mouse_encountered = true
 			}
 			rl.GuiEnable()
 		}
 	}
+	return mouse_encountered
 }
 
-draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Action_Events) {
+draw_extra_ui_layer :: proc(
+	name: string,
+	selected_buttons: Selected_Entity_Action_Events,
+) -> bool {
 	rl.GuiPanel(
 		get_gui_panel_rectangle_position(20, f32(rl.GetScreenHeight()) - 330),
 		fmt.ctprintf(name),
 	)
 	// rl.GuiPanel(rl.Rectangle{20, 154, 212, 132}, fmt.ctprintf(name))
 	rl.GuiEnable()
+	mouse_encountered := false
 	for i in 0 ..< len(selected_buttons) {
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
 		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 347)
@@ -438,8 +468,13 @@ draw_extra_ui_layer :: proc(name: string, selected_buttons: Selected_Entity_Acti
 			) {
 				g.button_event = selected_buttons[i]
 			}
+
+			if rl.CheckCollisionPointRec(rl.GetMousePosition(), gui_button_rectangle) {
+				mouse_encountered = true
+			}
 		}
 	}
+	return mouse_encountered
 }
 
 spinner_current_val: i32
@@ -584,55 +619,62 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 	}
 }
 
-draw_button_ui :: proc(selected: SelectedEntity) {
+draw_button_ui :: proc(selected: SelectedEntity) -> bool {
 	if selected.type == .None {
-		return
+		return false
 	}
 	rl.GuiEnable()
 	rl.GuiPanel(
 		get_gui_panel_rectangle_position(20, f32(rl.GetScreenHeight()) - 194),
 		fmt.ctprintf("%s", type_to_string(selected.type)),
 	)
+	mouse_encountered_ex := false
 	switch g.current_extra_ui_state {
 	case .None:
 	// do nothing
 	case .Output:
 		if selected.type == .Port {
 			if g.current_output_info.output_type == .Sea {
-				draw_extra_ui_layer(
+				mouse_encountered_ex = draw_extra_ui_layer(
 					"Outputs",
 					get_selected_entity_actions_events_port_sea_output(),
 				)
 			} else {
-				draw_extra_ui_layer(
+				mouse_encountered_ex = draw_extra_ui_layer(
 					"Outputs",
-					get_selected_entity_actions_events_port_land_output(),
+					get_selected_entity_actions_events_port_land_output(g.travelPoints[selected.id].worker_count + 1),
 				)
 			}
 		} else {
-			draw_extra_ui_layer("Outputs", get_selected_entity_actions_events_output())
+			mouse_encountered_ex = draw_extra_ui_layer(
+				"Outputs",
+				get_selected_entity_actions_events_output(
+					g.travelPoints[selected.id].worker_count + 1,
+				),
+			)
 		}
 	case .Recipe:
 		#partial switch selected.type {
 		case .Miner:
-			draw_extra_ui_layer("Recipes", get_recipe_list_miner())
+			mouse_encountered_ex = draw_extra_ui_layer("Recipes", get_recipe_list_miner())
 		case .Construct:
-			draw_extra_ui_layer("Recipes", get_recipe_list())
+			mouse_encountered_ex = draw_extra_ui_layer("Recipes", get_recipe_list())
 		case .Assemble:
-			draw_extra_ui_layer("Recipes", get_recipe_list_assembly())
+			mouse_encountered_ex = draw_extra_ui_layer("Recipes", get_recipe_list_assembly())
 		case .Manufacturer:
-			draw_extra_ui_layer("Recipes", get_recipe_list_final())
+			mouse_encountered_ex = draw_extra_ui_layer("Recipes", get_recipe_list_final())
 		case:
-			draw_extra_ui_layer("Recipes", get_recipe_list())
+			mouse_encountered_ex = draw_extra_ui_layer("Recipes", get_recipe_list())
 		}
 	case .AddRemove:
 		draw_counter_ui("Add & Remove", selected)
 	}
 
+	mouse_encountered := false
 	for i in 0 ..< len(selected.selected_entity_actions) {
 		if selected.selected_entity_actions[i].Data == nil {
 			rl.GuiDisable()
-			return
+			continue
 		}
 		gui_button_rectangle := Gui_Buttons_Rectangles[i]
 		gui_button_rectangle.y = gui_button_rectangle.y + (f32(rl.GetScreenHeight()) - 210)
@@ -642,7 +684,11 @@ draw_button_ui :: proc(selected: SelectedEntity) {
 		) {
 			g.button_event = selected.selected_entity_actions[i]
 		}
+		if rl.CheckCollisionPointRec(rl.GetMousePosition(), gui_button_rectangle) {
+			mouse_encountered = true
+		}
 	}
+	return mouse_encountered || mouse_encountered_ex
 }
 
 draw_entity_info_ui :: proc(selected: SelectedEntity) {
