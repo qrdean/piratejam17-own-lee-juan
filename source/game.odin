@@ -73,6 +73,7 @@ Game_Memory :: struct {
 	game_state:             GameState,
 	reward_message:         RewardMessage,
 	logo:                   LogoInfo,
+	music:                  rl.Music,
 }
 
 g: ^Game_Memory
@@ -1723,6 +1724,7 @@ in_model_list :: proc(model_type: ModelType) -> bool {
 
 @(export)
 game_update :: proc() {
+	rl.UpdateMusicStream(g.music)
 	handle_button()
 	update()
 	draw()
@@ -1735,6 +1737,8 @@ game_update :: proc() {
 game_init_window :: proc() {
 	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	rl.InitWindow(1280, 720, "Odin + Raylib + Hot Reload template!")
+	rl.InitAudioDevice()
+	rl.SetAudioStreamBufferSizeDefault(4096)
 	rl.SetWindowMonitor(0)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
@@ -2016,6 +2020,7 @@ game_init :: proc() {
 		logo           = logo,
 		game_state     = .Play,
 		reward_message = reward_messages,
+		music          = rl.LoadMusicStream("assets/sound/thisisshit.ogg"),
 	}
 
 	g.item_pickup[ItemType.CanOpened] = 10
@@ -2089,6 +2094,8 @@ game_init :: proc() {
 	}
 	append(&g.resourceNodes, resource_node)
 
+ 	rl.PlayMusicStream(g.music)
+
 	game_hot_reloaded(g)
 }
 
@@ -2130,6 +2137,8 @@ game_shutdown :: proc() {
 	rl.UnloadModel(g.allResources.construction_model)
 	rl.UnloadModel(g.allResources.assembly_model)
 	rl.UnloadModel(g.allResources.island_model)
+	rl.UnloadMusicStream(g.music)
+	rl.CloseAudioDevice()
 
 	clean_up_recipe(g.all_recipes.can_opened)
 	clean_up_recipe(g.all_recipes.can_flat)
