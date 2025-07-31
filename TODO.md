@@ -43,6 +43,8 @@ Automation constructor
 [x] Fix 'too many' Output selections. Need to count the number of current workers on a node and only display that +1
 [x] Add Title Logo and stop from playing while on .Title Screen
 [x] add short tutorial
+[x] Sound
+[x] Title Screen
 [] Remove 'Delete'
 [] Add a storage box workers can travel to  
 [] Add a fuel/electricity component with fuel
@@ -50,8 +52,6 @@ Automation constructor
 [] Texture all the models
 [] need to add better ui
 
-[] Sound
-[] Title Screen
 [] Settings Menu (just need music and sound toggles)
 
 

@@ -77,6 +77,7 @@ Game_Memory :: struct {
 	tutorial_message:       TutorialMessage,
 	logo:                   LogoInfo,
 	music:                  rl.Music,
+	sound_1:                rl.Sound,
 	mouseOverButton:        bool,
 }
 
@@ -1578,7 +1579,6 @@ draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
 			LIGHT_WHITE,
 		)
 		rl.DrawModel(g.allResources.m_island_model, position, 1., LIGHT_GREEN)
-
 	}
 }
 
@@ -1599,6 +1599,7 @@ draw_title :: proc() {
 		},
 		"Play",
 	) {
+		rl.PlaySound(g.sound_1)
 		g.game_state = .Play
 		g.tutorial_message.show_message = true
 	}
@@ -1611,7 +1612,7 @@ draw_title :: proc() {
 		},
 		"Quit",
 	) {
-		fmt.println("quit")
+		g.run = false
 	}
 }
 
@@ -1636,11 +1637,8 @@ draw :: proc() {
 	for island in g.islands {
 		draw_island_model(island.island_size, island.position)
 	}
-	// draw_island_model(.Small, rl.Vector3{5., -5., 5.})
-	// draw_island_model(.Medium, rl.Vector3{50., -5., 5.})
 
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., rl.WHITE)
-	// rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., AQUA_BLUE)
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 100., 0.}, 1., rl.DARKBLUE)
 
 	for i in 0 ..< len(g.resourceNodes) {
@@ -2066,54 +2064,55 @@ game_init :: proc() {
 		game_state       = .Title,
 		reward_message   = reward_messages,
 		tutorial_message = tutorial,
-		music            = rl.LoadMusicStream("assets/sound/thisisshit.ogg"),
 		title_image      = rl.LoadTextureFromImage(logo_image),
+		music            = rl.LoadMusicStream("assets/sound/thisisshit.ogg"),
+		sound_1          = rl.LoadSound("assets/sound/s_interact_1.wav"),
 	}
 
 	g.item_pickup[ItemType.CanOpened] = 10
-	g.item_pickup[ItemType.CanFlat] = 5
+	g.item_pickup[ItemType.CanFlat] = 10
 
-	for i in 0 ..< 3 {
-		if (i % 2 == 0) {
-			wareHouseEntity := FactoryEntity {
-				position        = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
-				type            = ModelType.Rectangle,
-				color           = DARK_GREEN,
-				original_color  = DARK_GREEN,
-				highlight_color = rl.GREEN,
-				bb              = rectBB,
-				recipe_type     = .None,
-				active          = true,
-			}
-
-			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
-				wareHouseEntity.current_inputs[key] = 0
-			}
-			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).output_map {
-				wareHouseEntity.current_outputs[key] = 40
-			}
-			append(&g.travelPoints, wareHouseEntity)
-		} else {
-			wareHouseEntity := FactoryEntity {
-				position        = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
-				type            = ModelType.Rectangle,
-				color           = DARK_GREEN,
-				original_color  = DARK_GREEN,
-				highlight_color = rl.GREEN,
-				bb              = rectBB,
-				recipe_type     = .None,
-				active          = true,
-			}
-
-			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
-				wareHouseEntity.current_inputs[key] = 0
-			}
-			for key in get_recipe_from_memory(wareHouseEntity.recipe_type).output_map {
-				wareHouseEntity.current_outputs[key] = 40
-			}
-			append(&g.travelPoints, wareHouseEntity)
-		}
-	}
+	// for i in 0 ..< 3 {
+	// 	if (i % 2 == 0) {
+	// 		wareHouseEntity := FactoryEntity {
+	// 			position        = rl.Vector3{f32(i * 15) + 15, 1., f32(i * 15) + 15},
+	// 			type            = ModelType.Rectangle,
+	// 			color           = DARK_GREEN,
+	// 			original_color  = DARK_GREEN,
+	// 			highlight_color = rl.GREEN,
+	// 			bb              = rectBB,
+	// 			recipe_type     = .None,
+	// 			active          = true,
+	// 		}
+	//
+	// 		for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
+	// 			wareHouseEntity.current_inputs[key] = 0
+	// 		}
+	// 		for key in get_recipe_from_memory(wareHouseEntity.recipe_type).output_map {
+	// 			wareHouseEntity.current_outputs[key] = 40
+	// 		}
+	// 		append(&g.travelPoints, wareHouseEntity)
+	// 	} else {
+	// 		wareHouseEntity := FactoryEntity {
+	// 			position        = rl.Vector3{f32(i * 15) - 15, 1., f32(i * 15) + 15},
+	// 			type            = ModelType.Rectangle,
+	// 			color           = DARK_GREEN,
+	// 			original_color  = DARK_GREEN,
+	// 			highlight_color = rl.GREEN,
+	// 			bb              = rectBB,
+	// 			recipe_type     = .None,
+	// 			active          = true,
+	// 		}
+	//
+	// 		for key in get_recipe_from_memory(wareHouseEntity.recipe_type).input_map {
+	// 			wareHouseEntity.current_inputs[key] = 0
+	// 		}
+	// 		for key in get_recipe_from_memory(wareHouseEntity.recipe_type).output_map {
+	// 			wareHouseEntity.current_outputs[key] = 40
+	// 		}
+	// 		append(&g.travelPoints, wareHouseEntity)
+	// 	}
+	// }
 
 	goal_entity := FactoryEntity {
 		position        = rl.Vector3{0, 1., 0.},
@@ -2131,7 +2130,7 @@ game_init :: proc() {
 	append(&g.travelPoints, goal_entity)
 
 	resource_node := ResourceEntity {
-		position        = rl.Vector3{5, 0.5, 5},
+		position        = rl.Vector3{5, 0.1, 5},
 		type            = ModelType.ResourceNode,
 		color           = rl.WHITE,
 		original_color  = rl.WHITE,
@@ -2143,6 +2142,7 @@ game_init :: proc() {
 
 	rl.UnloadImage(logo_image)
 	rl.PlayMusicStream(g.music)
+	rl.SetSoundVolume(g.sound_1, 0.4)
 
 	game_hot_reloaded(g)
 }
@@ -2187,6 +2187,7 @@ game_shutdown :: proc() {
 	rl.UnloadModel(g.allResources.assembly_model)
 	rl.UnloadModel(g.allResources.island_model)
 	rl.UnloadMusicStream(g.music)
+	rl.UnloadSound(g.sound_1)
 	rl.CloseAudioDevice()
 
 	clean_up_recipe(g.all_recipes.can_opened)

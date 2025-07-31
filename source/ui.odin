@@ -421,6 +421,7 @@ draw_default_button_ui :: proc() -> bool {
 				}
 			}
 			if rl.GuiButton(gui_button_rectangle, fmt.ctprintf("%s", actions[i].ButtonText)) {
+				rl.PlaySound(g.sound_1)
 				g.button_event = actions[i]
 			}
 			g.mouseOverButton = false
@@ -466,6 +467,7 @@ draw_extra_ui_layer :: proc(
 				gui_button_rectangle,
 				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
 			) {
+        rl.PlaySound(g.sound_1)
 				g.button_event = selected_buttons[i]
 			}
 
@@ -542,6 +544,7 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 						item_type,
 						spinner_current_val,
 					) {
+						rl.PlaySound(g.sound_1)
 						add_to_inventory(item_type, amount_received)
 					}
 				}
@@ -555,6 +558,7 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 						item_type,
 						spinner_current_val,
 					) {
+						rl.PlaySound(g.sound_1)
 						add_to_inventory(item_type, amount_received)
 					}
 				}
@@ -578,6 +582,7 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 						item_type,
 						spinner_current_val,
 					)
+					rl.PlaySound(g.sound_1)
 					add_to_inventory(item_type, amount_received)
 					spinner_current_val = 0
 				}
@@ -590,6 +595,7 @@ draw_counter_ui :: proc(name: string, selected: SelectedEntity) {
 						item_type,
 						spinner_current_val,
 					)
+					rl.PlaySound(g.sound_1)
 					add_to_inventory(item_type, amount_received)
 					spinner_current_val = 0
 				}
@@ -682,6 +688,7 @@ draw_button_ui :: proc(selected: SelectedEntity) -> bool {
 			gui_button_rectangle,
 			fmt.ctprintf("%s", selected.selected_entity_actions[i].ButtonText),
 		) {
+			rl.PlaySound(g.sound_1)
 			g.button_event = selected.selected_entity_actions[i]
 		}
 		if rl.CheckCollisionPointRec(rl.GetMousePosition(), gui_button_rectangle) {
@@ -763,6 +770,7 @@ draw_reward_ui :: proc(title, message: string) {
 	)
 
 	if result >= 0 {
+		rl.PlaySound(g.sound_1)
 		if g.turn_in_info.goal_type == .Done {
 			g.reward_message.no_more_messages = true
 		}
@@ -781,6 +789,7 @@ draw_tutorial_ui :: proc(title, message: string) {
 	)
 
 	if result >= 0 {
+		rl.PlaySound(g.sound_1)
 		g.tutorial_message.tutorial_step = get_next_step(g.tutorial_message.tutorial_step)
 		if g.tutorial_message.tutorial_step == .None {
 			g.tutorial_message.show_message = false
