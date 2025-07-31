@@ -21,9 +21,9 @@ void main()
     float depthFactor = clamp((distance - 500.0) / 6000.0, 0.0, 1.0); // adjust range
 
     // vec3 shallowColor = vec3(161.0/255.0, 205.0/255.0, 176.0/255.0);
-    vec3 shallowColor = vec3(112.0/255.0, 147.0/255.0, 149.0/255.0);
     // vec3 shallowColor = vec3(74.0/255.0, 120.0/255.0, 123.0/255.0);
     
+    vec3 shallowColor = vec3(112.0/255.0, 147.0/255.0, 149.0/255.0);
     vec3 deepColor = vec3(74.0/255.0, 120.0/255.0, 123.0/255.0);
 
     vec3 waterColor = mix(shallowColor, deepColor, depthFactor) * brightness;

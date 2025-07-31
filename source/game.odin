@@ -32,6 +32,7 @@ import "core:math"
 import rl "vendor:raylib"
 import rlgl "vendor:raylib/rlgl"
 
+IMAGE_DATA :: #load("../assets/title_image.png")
 PIXEL_WINDOW_HEIGHT :: 360
 TILE_SIZE :: 32
 MAX_RESOURCES :: 250
@@ -43,6 +44,7 @@ waterHeightY: f32 = 1.
 Game_Memory :: struct {
 	some_number:            int,
 	run:                    bool,
+	title_image:            rl.Texture,
 	camera:                 rl.Camera,
 	travelPoints:           [dynamic]FactoryEntity,
 	travel:                 [dynamic]TravelEntity,
@@ -76,7 +78,6 @@ Game_Memory :: struct {
 	logo:                   LogoInfo,
 	music:                  rl.Music,
 	mouseOverButton:        bool,
-	title_image:            rl.Texture2D,
 }
 
 g: ^Game_Memory
@@ -1735,7 +1736,6 @@ draw :: proc() {
 	if g.reward_message.show_reward_message && !g.reward_message.no_more_messages {
 		draw_reward_ui(g.reward_message.title, g.reward_message.message)
 	}
-
 	if g.tutorial_message.show_message {
 		msg := get_tutorial_message(g.tutorial_message.tutorial_step)
 		draw_tutorial_ui("Tutorial", msg)
@@ -1781,12 +1781,12 @@ game_init_window :: proc() {
 	rl.SetWindowMonitor(0)
 	rl.SetTargetFPS(60)
 	rl.SetExitKey(nil)
-	// rl.GuiLoadStyleTerminal()
+	rl.GuiSetStyle(rl.GuiControl.DEFAULT, i32(rl.GuiDefaultProperty.TEXT_SIZE), 10)
 }
 
 @(export)
 game_init :: proc() {
-	// rl.DisableCursor()
+	logo_image := rl.LoadImageFromMemory(".png", raw_data(IMAGE_DATA), i32(len(IMAGE_DATA)))
 	g = new(Game_Memory)
 
 	terrainMesh := rl.GenMeshPlane(10., 10., 10., 5.)
@@ -2049,6 +2049,7 @@ game_init :: proc() {
 		show_message  = false,
 	}
 
+
 	g^ = Game_Memory {
 		run              = true,
 		some_number      = 100,
@@ -2066,7 +2067,7 @@ game_init :: proc() {
 		reward_message   = reward_messages,
 		tutorial_message = tutorial,
 		music            = rl.LoadMusicStream("assets/sound/thisisshit.ogg"),
-		title_image      = rl.LoadTexture("assets/title_image.png"),
+		title_image      = rl.LoadTextureFromImage(logo_image),
 	}
 
 	g.item_pickup[ItemType.CanOpened] = 10
@@ -2140,6 +2141,7 @@ game_init :: proc() {
 	}
 	append(&g.resourceNodes, resource_node)
 
+	rl.UnloadImage(logo_image)
 	rl.PlayMusicStream(g.music)
 
 	game_hot_reloaded(g)
@@ -2159,6 +2161,7 @@ game_should_run :: proc() -> bool {
 
 @(export)
 game_shutdown :: proc() {
+	rl.UnloadTexture(g.title_image)
 	rl.UnloadModel(g.allResources.cubeModel)
 	rl.UnloadModel(g.allResources.rectangleModel)
 	rl.UnloadModel(g.allResources.terrainModel)
