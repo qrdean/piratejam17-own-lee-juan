@@ -40,15 +40,15 @@ Automation constructor
 [x] Add global model shader
 [x] Music (really wanna change it tho dont like what I made)
 [x] Fix issue where you can click "through" buttons. Need to take into account when we are hovering over buttons and stop the raycast from firing
+[x] Fix 'too many' Output selections. Need to count the number of current workers on a node and only display that +1
+[x] Add Title Logo and stop from playing while on .Title Screen
+[x] add short tutorial
 [] Remove 'Delete'
-[] Add Title Logo and stop from playing while on .Title Screen
-[] Fix 'too many' Output selections. Need to count the number of current workers on a node and only display that +1
 [] Add a storage box workers can travel to  
 [] Add a fuel/electricity component with fuel
 [] Clearer indication on which places a building is hooked up to currently
 [] Texture all the models
 [] need to add better ui
-[] add short tutorial
 
 [] Sound
 [] Title Screen

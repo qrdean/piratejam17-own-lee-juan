@@ -756,7 +756,7 @@ draw_keybindings_ui :: proc() {
 
 draw_reward_ui :: proc(title, message: string) {
 	result := rl.GuiMessageBox(
-		rl.Rectangle{f32(rl.GetScreenWidth() / 2), f32(rl.GetScreenHeight() / 2), 240, 120},
+		rl.Rectangle{f32(rl.GetScreenWidth() / 2) - 120, f32(rl.GetScreenHeight() / 2) - 60, 240, 120},
 		fmt.ctprint(title),
 		fmt.ctprint(message),
 		"OK",
@@ -769,5 +769,21 @@ draw_reward_ui :: proc(title, message: string) {
 		g.reward_message.show_reward_message = false
 		g.reward_message.title = ""
 		g.reward_message.message = ""
+	}
+}
+
+draw_tutorial_ui :: proc(title, message: string) {
+	result := rl.GuiMessageBox(
+		rl.Rectangle{f32(rl.GetScreenWidth() / 2) - 150, f32(rl.GetScreenHeight() / 2) - 230, 300, 460},
+		fmt.ctprint(title),
+		fmt.ctprint(message),
+		"OK",
+	)
+
+	if result >= 0 {
+		g.tutorial_message.tutorial_step = get_next_step(g.tutorial_message.tutorial_step)
+		if g.tutorial_message.tutorial_step == .None {
+			g.tutorial_message.show_message = false
+		}
 	}
 }

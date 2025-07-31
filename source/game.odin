@@ -72,9 +72,11 @@ Game_Memory :: struct {
 	turn_in_building_id:    int,
 	game_state:             GameState,
 	reward_message:         RewardMessage,
+	tutorial_message:       TutorialMessage,
 	logo:                   LogoInfo,
 	music:                  rl.Music,
 	mouseOverButton:        bool,
+	title_image:            rl.Texture2D,
 }
 
 g: ^Game_Memory
@@ -116,11 +118,20 @@ RecipeInfo :: struct {
 	recipe_type: RecipeType,
 }
 
+MessageDialog :: struct {
+	title:   string,
+	message: string,
+}
+
+TutorialMessage :: struct {
+	tutorial_step: TutorialStep,
+	show_message:  bool,
+}
+
 RewardMessage :: struct {
-	no_more_messages:    bool,
-	show_reward_message: bool,
-	title:               string,
-	message:             string,
+	using message_dialog: MessageDialog,
+	no_more_messages:     bool,
+	show_reward_message:  bool,
 }
 
 PlayerMode :: enum {
@@ -1400,6 +1411,11 @@ update :: proc() {
 		g.show_inventory = !g.show_inventory
 	}
 
+	if rl.IsKeyPressed(.T) {
+		g.tutorial_message.show_message = true
+		g.tutorial_message.tutorial_step = .First
+	}
+
 	if rl.IsKeyPressed(.K) {
 		if g.game_state == .KeyboardMenuOpen {
 			g.game_state = .Play
@@ -1413,9 +1429,6 @@ update :: proc() {
 		debug_end_goal()
 		debug_many_items()
 	}
-
-	if rl.IsKeyPressed(.H) {g.reward_message.show_reward_message = true}
-
 
 	wave := math.sin_f32(f32(rl.GetTime()) * 0.9) * 0.9 // slow, subtle vertical motion
 	animatedWaterLevel := waterHeightY + wave
@@ -1569,15 +1582,32 @@ draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
 }
 
 draw_title :: proc() {
+	rl.DrawTexture(
+		g.title_image,
+		rl.GetScreenHeight() / 2 - 128,
+		rl.GetScreenHeight() / 2 - 128,
+		rl.WHITE,
+	)
 	rl.GuiEnable()
 	if rl.GuiButton(
-		rl.Rectangle{f32(rl.GetScreenWidth() / 2), f32(rl.GetScreenHeight() / 2), 128, 50},
+		rl.Rectangle {
+			f32(rl.GetScreenWidth() / 2) - 64,
+			f32(rl.GetScreenHeight() / 2) - 25,
+			128,
+			50,
+		},
 		"Play",
 	) {
 		g.game_state = .Play
+		g.tutorial_message.show_message = true
 	}
 	if rl.GuiButton(
-		rl.Rectangle{f32(rl.GetScreenWidth() / 2), f32(rl.GetScreenHeight() / 2 + 64), 128, 50},
+		rl.Rectangle {
+			f32(rl.GetScreenWidth() / 2) - 64,
+			f32(rl.GetScreenHeight() / 2 + 64) - 25,
+			128,
+			50,
+		},
 		"Quit",
 	) {
 		fmt.println("quit")
@@ -1706,6 +1736,10 @@ draw :: proc() {
 		draw_reward_ui(g.reward_message.title, g.reward_message.message)
 	}
 
+	if g.tutorial_message.show_message {
+		msg := get_tutorial_message(g.tutorial_message.tutorial_step)
+		draw_tutorial_ui("Tutorial", msg)
+	}
 	if g.player_mode == .Editing {
 		encountered := draw_button_ui(g.selected)
 		draw_entity_info_ui(g.selected)
@@ -2010,22 +2044,29 @@ game_init :: proc() {
 		message             = "",
 	}
 
+	tutorial := TutorialMessage {
+		tutorial_step = .First,
+		show_message  = false,
+	}
+
 	g^ = Game_Memory {
-		run            = true,
-		some_number    = 100,
-		camera         = get_new_camera(),
-		allResources   = resources,
-		all_recipes    = recipes,
-		all_goals      = goals,
-		all_costs      = costs,
-		player_mode    = PlayerMode.Viewing,
-		debug_info     = DebugInfo{},
-		turn_in_info   = turn_in_info,
-		islands        = islands,
-		logo           = logo,
-		game_state     = .Play,
-		reward_message = reward_messages,
-		music          = rl.LoadMusicStream("assets/sound/thisisshit.ogg"),
+		run              = true,
+		some_number      = 100,
+		camera           = get_new_camera(),
+		allResources     = resources,
+		all_recipes      = recipes,
+		all_goals        = goals,
+		all_costs        = costs,
+		player_mode      = PlayerMode.Viewing,
+		debug_info       = DebugInfo{},
+		turn_in_info     = turn_in_info,
+		islands          = islands,
+		logo             = logo,
+		game_state       = .Title,
+		reward_message   = reward_messages,
+		tutorial_message = tutorial,
+		music            = rl.LoadMusicStream("assets/sound/thisisshit.ogg"),
+		title_image      = rl.LoadTexture("assets/title_image.png"),
 	}
 
 	g.item_pickup[ItemType.CanOpened] = 10
