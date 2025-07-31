@@ -61,7 +61,7 @@ item_type_to_string :: proc(item_type: ItemType) -> string {
 	case .CanHelm:
 		return "Helm"
 	case .CanRutter:
-		return "Rutter"
+		return "Rudder"
 	case .Boat:
 		return "Boat"
 	}
@@ -333,7 +333,7 @@ get_item_map_with_two_maps_text :: proc(
 ) -> string {
 	b := strings.builder_make(context.temp_allocator)
 	for key in item_map_2 {
-		fmt.sbprintf(&b, "%s: %d/%d ", item_type_to_string(key), item_map[key], item_map_2[key])
+		fmt.sbprintf(&b, "%s: %d/%d\n", item_type_to_string(key), item_map[key], item_map_2[key])
 	}
 	return strings.to_string(b)
 }

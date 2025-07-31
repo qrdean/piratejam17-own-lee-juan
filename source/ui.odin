@@ -175,7 +175,7 @@ get_recipe_list_final :: proc() -> Selected_Entity_Action_Events {
 	motor := Event{"Motor", Recipe_Select{recipe_type = .CanMotor}}
 	propellor := Event{"Propellor", Recipe_Select{recipe_type = .CanPropeller}}
 	helm := Event{"Helm", Recipe_Select{recipe_type = .CanHelm}}
-	rudder := Event{"Rutter", Recipe_Select{recipe_type = .CanRutter}}
+	rudder := Event{"Rudder", Recipe_Select{recipe_type = .CanRutter}}
 	hull := Event{"Hull", Recipe_Select{recipe_type = .CanHull}}
 	switch g.turn_in_info.goal_type {
 	case .Done:
@@ -224,8 +224,8 @@ get_selected_entity_action_events_port :: proc(
 			Spawn_Traveler{building_id = building_id, model = ModelType.Cat, position = position},
 		},
 		{"Output Land", Output_View{building_id = building_id, output_type = Output_Type.Land}},
-		{"Delete", Delete_Building{building_id = building_id}},
 		{"AddRemove", Counter_View{building_id = building_id}},
+		{"Reset\nWorkers", Reset_Workers{building_id = building_id}},
 		{},
 		{},
 	}
@@ -240,9 +240,9 @@ get_selected_entity_action_events_factory :: proc(
 		{"Add", Spawn_Traveler{building_id = building_id, model = modelType, position = position}},
 		{"Output", Output_View{building_id = building_id}},
 		{"Recipe", Recipe_View{building_id = building_id}},
-		{"Delete", Delete_Building{building_id = building_id}},
 		{"AddRemove", Counter_View{building_id = building_id}},
 		{"Reset\nWorkers", Reset_Workers{building_id = building_id}},
+		{},
 		{},
 		{},
 	}
@@ -272,7 +272,9 @@ get_selected_entity_actions_events_output :: proc(count: int) -> Selected_Entity
 	// }
 }
 
-get_selected_entity_actions_events_port_land_output :: proc(count: int) -> Selected_Entity_Action_Events {
+get_selected_entity_actions_events_port_land_output :: proc(
+	count: int,
+) -> Selected_Entity_Action_Events {
 	event := [8]Event{}
 	for i in 0 ..< count {
 		b := strings.builder_make(context.temp_allocator)
@@ -467,7 +469,7 @@ draw_extra_ui_layer :: proc(
 				gui_button_rectangle,
 				fmt.ctprintf("%s", selected_buttons[i].ButtonText),
 			) {
-        rl.PlaySound(g.sound_1)
+				rl.PlaySound(g.sound_1)
 				g.button_event = selected_buttons[i]
 			}
 
@@ -648,7 +650,9 @@ draw_button_ui :: proc(selected: SelectedEntity) -> bool {
 			} else {
 				mouse_encountered_ex = draw_extra_ui_layer(
 					"Outputs",
-					get_selected_entity_actions_events_port_land_output(g.travelPoints[selected.id].worker_count + 1),
+					get_selected_entity_actions_events_port_land_output(
+						g.travelPoints[selected.id].worker_count + 1,
+					),
 				)
 			}
 		} else {
@@ -763,7 +767,12 @@ draw_keybindings_ui :: proc() {
 
 draw_reward_ui :: proc(title, message: string) {
 	result := rl.GuiMessageBox(
-		rl.Rectangle{f32(rl.GetScreenWidth() / 2) - 120, f32(rl.GetScreenHeight() / 2) - 60, 240, 120},
+		rl.Rectangle {
+			f32(rl.GetScreenWidth() / 2) - 120,
+			f32(rl.GetScreenHeight() / 2) - 60,
+			240,
+			120,
+		},
 		fmt.ctprint(title),
 		fmt.ctprint(message),
 		"OK",
@@ -782,7 +791,12 @@ draw_reward_ui :: proc(title, message: string) {
 
 draw_tutorial_ui :: proc(title, message: string) {
 	result := rl.GuiMessageBox(
-		rl.Rectangle{f32(rl.GetScreenWidth() / 2) - 150, f32(rl.GetScreenHeight() / 2) - 230, 300, 460},
+		rl.Rectangle {
+			f32(rl.GetScreenWidth() / 2) - 150,
+			f32(rl.GetScreenHeight() / 2) - 230,
+			300,
+			460,
+		},
 		fmt.ctprint(title),
 		fmt.ctprint(message),
 		"OK",

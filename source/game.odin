@@ -79,6 +79,7 @@ Game_Memory :: struct {
 	music:                  rl.Music,
 	sound_1:                rl.Sound,
 	mouseOverButton:        bool,
+	show_credits:           bool,
 }
 
 g: ^Game_Memory
@@ -175,6 +176,7 @@ AllResources :: struct {
 	can_helm:                  rl.Model,
 	can_rutter:                rl.Model,
 	can_propeller:             rl.Model,
+	can_hull:                  rl.Model,
 	construction_model:        rl.Model,
 	assembly_model:            rl.Model,
 	island_model:              rl.Model,
@@ -322,6 +324,7 @@ ModelType :: enum {
 	CanHelm,
 	CanRudder,
 	CanPropeller,
+	CanHull,
 	Island_1,
 	ResourceNode,
 }
@@ -380,6 +383,8 @@ get_model :: proc(stuff: ModelType) -> rl.Model {
 		return g.allResources.port_model
 	case .Raft:
 		return g.allResources.raft_model
+	case .CanHull:
+		return g.allResources.can_hull
 	}
 	return g.allResources.cubeModel
 }
@@ -408,6 +413,10 @@ get_model_from_item :: proc(item_type: ItemType) -> rl.Model {
 		return g.allResources.can_rutter
 	case .CanPropeller:
 		return g.allResources.can_propeller
+	case .CanHull:
+		return g.allResources.can_hull
+	case .Boat:
+		return g.allResources.boatModel
 	}
 	return g.allResources.cubeModel
 }
@@ -503,6 +512,8 @@ type_to_string :: proc(modelType: ModelType) -> string {
 		return "Port"
 	case .Raft:
 		return "Raft"
+	case .CanHull:
+		return "Hull"
 	}
 	return "undefined"
 }
@@ -564,9 +575,6 @@ spawn_cargo_travel_entity :: proc(building_id: int, position: rl.Vector3, model_
 spawn_travel_entity :: proc(building_id: int, position: rl.Vector3, model_type: ModelType) {
 	worker_count := g.travelPoints[building_id].worker_count
 	worker_count_check := 9
-	if g.travelPoints[building_id].factory_type == .Port {
-		worker_count_check = 6
-	}
 
 	if worker_count >= worker_count_check {
 		return
@@ -867,8 +875,8 @@ handle_placing_mode :: proc() {
 					g.current_collision_info.point.z,
 				},
 				type            = g.current_placing_info.modelType,
-				color           = rl.PURPLE,
-				original_color  = rl.PURPLE,
+				color           = rl.WHITE,
+				original_color  = rl.WHITE,
 				highlight_color = rl.GREEN,
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
@@ -890,8 +898,8 @@ handle_placing_mode :: proc() {
 					g.current_collision_info.point.z,
 				},
 				type            = g.current_placing_info.modelType,
-				color           = rl.BLUE,
-				original_color  = rl.BLUE,
+				color           = rl.WHITE,
+				original_color  = rl.WHITE,
 				highlight_color = rl.GREEN,
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
@@ -909,8 +917,8 @@ handle_placing_mode :: proc() {
 					g.current_collision_info.point.z,
 				},
 				type            = g.current_placing_info.modelType,
-				color           = rl.YELLOW,
-				original_color  = rl.YELLOW,
+				color           = rl.WHITE,
+				original_color  = rl.WHITE,
 				highlight_color = rl.GREEN,
 				bb              = rl.GetModelBoundingBox(
 					get_model(g.current_placing_info.modelType),
@@ -1364,8 +1372,10 @@ update :: proc() {
 		if !g.travelPoints[i].active {continue}
 		if g.travelPoints[i].factory_type == .TurnIn {
 			if calculate_goals(g.travelPoints[i], g.turn_in_info.goal_type) {
-				// clear(&g.turn_in_info.current_count_map)
 				g.turn_in_info.goal_type = get_next_goal(g.turn_in_info.goal_type)
+				if g.turn_in_info.goal_type == .TierThree {
+					overwrite_recipe_time(&g.all_recipes.can_opened, 0.5)
+				}
 				title, message := get_goal_and_message(g.turn_in_info.goal_type)
 				g.reward_message.show_reward_message = true
 				g.reward_message.title = title
@@ -1428,7 +1438,7 @@ update :: proc() {
 
 	if rl.IsKeyPressed(.P) {
 		overwrite_recipe_time(&g.all_recipes.can_opened, 0.5)
-		debug_end_goal()
+		// debug_end_goal()
 		debug_many_items()
 	}
 
@@ -1448,6 +1458,21 @@ draw_debug_info :: proc(debug_info: []cstring) {
 	text_spacing: int = 5
 	for info in debug_info {
 		rl.DrawText(info, 5, auto_cast text_spacing, 8., rl.DARKGRAY)
+		text_spacing += 11
+	}
+}
+
+draw_debug_info_right :: proc(debug_info: []cstring) {
+	// text_spacing: int = PIXEL_WINDOW_HEIGHT - 15
+	text_spacing: int = 5
+	for info in debug_info {
+		rl.DrawText(
+			info,
+			(rl.GetScreenWidth() - PIXEL_WINDOW_HEIGHT * 2),
+			auto_cast text_spacing,
+			8.,
+			rl.DARKGRAY,
+		)
 		text_spacing += 11
 	}
 }
@@ -1492,16 +1517,16 @@ draw_three_dee_entity :: proc(three_dee: ThreeDeeEntity) {
 draw_editing_layer :: proc(three_dee: ThreeDeeEntity) {
 	rl.DrawBoundingBox(bounding_box_and_transform(three_dee.bb, three_dee.position), rl.GREEN)
 
-	zvector := rl.Vector3(0)
-	zvector.z = 5.
-	yvector := rl.Vector3(0)
-	yvector.y = 5.
-	xvector := rl.Vector3(0)
-	xvector.x = 5.
-
-	rl.DrawLine3D(three_dee.position, three_dee.position + zvector, rl.BLUE)
-	rl.DrawLine3D(three_dee.position, three_dee.position + xvector, rl.RED)
-	rl.DrawLine3D(three_dee.position, three_dee.position + yvector, rl.YELLOW)
+	// zvector := rl.Vector3(0)
+	// zvector.z = 5.
+	// yvector := rl.Vector3(0)
+	// yvector.y = 5.
+	// xvector := rl.Vector3(0)
+	// xvector.x = 5.
+	//
+	// rl.DrawLine3D(three_dee.position, three_dee.position + zvector, rl.BLUE)
+	// rl.DrawLine3D(three_dee.position, three_dee.position + xvector, rl.RED)
+	// rl.DrawLine3D(three_dee.position, three_dee.position + yvector, rl.YELLOW)
 }
 
 Island_Size :: enum {
@@ -1585,11 +1610,14 @@ draw_island_model :: proc(island_size: Island_Size, position: rl.Vector3) {
 draw_title :: proc() {
 	rl.DrawTexture(
 		g.title_image,
-		rl.GetScreenHeight() / 2 - 128,
-		rl.GetScreenHeight() / 2 - 128,
+		rl.GetScreenWidth() / 2 - 420,
+		rl.GetScreenHeight() / 2 - 256,
 		rl.WHITE,
 	)
 	rl.GuiEnable()
+	if g.show_credits {
+		rl.GuiDisable()
+	}
 	if rl.GuiButton(
 		rl.Rectangle {
 			f32(rl.GetScreenWidth() / 2) - 64,
@@ -1610,9 +1638,68 @@ draw_title :: proc() {
 			128,
 			50,
 		},
+		"Credits",
+	) {
+		g.show_credits = true
+	}
+	if rl.GuiButton(
+		rl.Rectangle {
+			f32(rl.GetScreenWidth() / 2) - 64,
+			f32(rl.GetScreenHeight() / 2 + 64) + 40,
+			128,
+			50,
+		},
 		"Quit",
 	) {
 		g.run = false
+	}
+}
+
+draw_goal_box :: proc() {
+	debug_info := []cstring {
+		fmt.ctprintf(
+			"Current Goal\n%v\n",
+			get_item_map_with_two_maps_text(
+				g.travelPoints[g.turn_in_building_id].current_inputs,
+				(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
+			),
+		),
+	}
+	rl.DrawRectangle(3, 0, 122, 1, rl.GRAY)
+	rl.DrawRectangle(4, 1, 120, 3, rl.LIGHTGRAY)
+	rl.DrawRectangle(3, 1, 1, 83, rl.LIGHTGRAY)
+	rl.DrawRectangle(3, 83, 122, 2, rl.LIGHTGRAY)
+	rl.DrawRectangle(124, 1, 1, 83, rl.LIGHTGRAY)
+	rl.DrawRectangle(4, 4, 120, 80, rl.RAYWHITE)
+	draw_debug_info(debug_info)
+}
+
+draw_inventory_box :: proc() {
+	debug_info := []cstring {
+		fmt.ctprintf("\nInventory\n%v\n", get_item_map_text_new_line(g.item_pickup)),
+	}
+	rl.DrawRectangle((rl.GetScreenWidth() - PIXEL_WINDOW_HEIGHT * 2) - 2, 0, 122, 1, rl.GRAY)
+	rl.DrawRectangle((rl.GetScreenWidth() - PIXEL_WINDOW_HEIGHT * 2) - 2, 1, 120, 3, rl.LIGHTGRAY)
+	rl.DrawRectangle((rl.GetScreenWidth() - PIXEL_WINDOW_HEIGHT * 2) - 2, 1, 1, 83, rl.LIGHTGRAY)
+	rl.DrawRectangle((rl.GetScreenWidth() - PIXEL_WINDOW_HEIGHT * 2) - 2, 83, 122, 2, rl.LIGHTGRAY)
+	rl.DrawRectangle((rl.GetScreenWidth() - PIXEL_WINDOW_HEIGHT * 2) - 2, 4, 120, 180, rl.RAYWHITE)
+	draw_debug_info_right(debug_info)
+}
+
+draw_credits_box :: proc() {
+	x_pos := rl.GetScreenWidth() / 2 - 180
+	y_pos := rl.GetScreenHeight() / 2 - 120
+	rl.DrawRectangle(x_pos, y_pos, 360, 300, rl.RAYWHITE)
+	rl.DrawText(
+		"Code | Music | Art \nMade by qtipbluedog\n\nBig shout out to my cat\nBustopher!\n\nWithout him I wouldn't have a\nprogramming buddy!",
+		x_pos + 10,
+		y_pos + 10,
+		24.,
+		rl.BLACK,
+	)
+	rl.GuiEnable()
+	if rl.GuiButton(rl.Rectangle{f32(x_pos) + 136, f32(y_pos) + 240, 64, 50}, "Close") {
+		g.show_credits = false
 	}
 }
 
@@ -1636,6 +1723,15 @@ draw :: proc() {
 
 	for island in g.islands {
 		draw_island_model(island.island_size, island.position)
+	}
+
+	draw_island_model(.Small, rl.Vector3{100., -5., 70.})
+	draw_island_model(.Medium, rl.Vector3{80., -5., 0.})
+	draw_island_model(.Small, rl.Vector3{5., -5., 5.})
+	draw_island_model(.Medium, rl.Vector3{0., -5., 80.})
+	draw_island_model(.Small, rl.Vector3{50., -5., 120.})
+	if g.turn_in_info.goal_type == .Done {
+		rl.DrawModel(get_model(.Boat), rl.Vector3{-10, g.waterPos.y - 2.5, -10.}, 1.0, rl.WHITE)
 	}
 
 	rl.DrawModel(g.allResources.waterModel, g.waterPos - rl.Vector3{0., 2., 0.}, 1., rl.WHITE)
@@ -1689,38 +1785,44 @@ draw :: proc() {
 	rl.EndMode3D()
 
 	rl.BeginMode2D(ui_camera())
-	debug_info := []cstring {
-		fmt.ctprintf(
-			"Current Goal\n%v\n",
-			get_item_map_with_two_maps_text(
-				g.travelPoints[g.turn_in_building_id].current_inputs,
-				(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
-			),
-		),
+	// debug_info := []cstring {
+	// 	fmt.ctprintf(
+	// 		"Current Goal\n%v\n",
+	// 		get_item_map_with_two_maps_text(
+	// 			g.travelPoints[g.turn_in_building_id].current_inputs,
+	// 			(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
+	// 		),
+	// 	),
+	// }
+	// if g.show_inventory {
+	// 	debug_info = []cstring {
+	// 		fmt.ctprintf(
+	// 			"Current Goal\n%v\n",
+	// 			get_item_map_with_two_maps_text(
+	// 				g.travelPoints[g.turn_in_building_id].current_inputs,
+	// 				(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
+	// 			),
+	// 		),
+	// 		fmt.ctprintf("\nInventory\n%v\n", get_item_map_text_new_line(g.item_pickup)),
+	// 	}
+	// }
+	// rl.DrawRectangle(3, 0, 122, 1, rl.GRAY)
+	// rl.DrawRectangle(4, 1, 120, 3, rl.LIGHTGRAY)
+	// rl.DrawRectangle(3, 1, 1, 83, rl.LIGHTGRAY)
+	// rl.DrawRectangle(3, 83, 122, 2, rl.LIGHTGRAY)
+	// rl.DrawRectangle(124, 1, 1, 83, rl.LIGHTGRAY)
+	// if g.show_inventory {
+	// 	rl.DrawRectangle(4, 4, 120, 180, rl.RAYWHITE)
+	// } else {
+	// 	rl.DrawRectangle(4, 4, 120, 80, rl.RAYWHITE)
+	// }
+	// draw_debug_info(debug_info)
+	if g.game_state != .Title {
+		draw_goal_box()
 	}
 	if g.show_inventory {
-		debug_info = []cstring {
-			fmt.ctprintf(
-				"Current Goal\n%v\n",
-				get_item_map_with_two_maps_text(
-					g.travelPoints[g.turn_in_building_id].current_inputs,
-					(get_goal_from_memory(g.turn_in_info.goal_type).input_map),
-				),
-			),
-			fmt.ctprintf("\nInventory\n%v\n", get_item_map_text_new_line(g.item_pickup)),
-		}
+		draw_inventory_box()
 	}
-	rl.DrawRectangle(3, 0, 122, 1, rl.GRAY)
-	rl.DrawRectangle(4, 1, 120, 3, rl.LIGHTGRAY)
-	rl.DrawRectangle(3, 1, 1, 83, rl.LIGHTGRAY)
-	rl.DrawRectangle(3, 83, 122, 2, rl.LIGHTGRAY)
-	rl.DrawRectangle(124, 1, 1, 83, rl.LIGHTGRAY)
-	if g.show_inventory {
-		rl.DrawRectangle(4, 4, 120, 180, rl.RAYWHITE)
-	} else {
-		rl.DrawRectangle(4, 4, 120, 80, rl.RAYWHITE)
-	}
-	draw_debug_info(debug_info)
 	rl.EndMode2D()
 
 	if g.game_state == .Title {
@@ -1743,6 +1845,9 @@ draw :: proc() {
 		draw_entity_info_ui(g.selected)
 		encountered_2 := draw_default_button_ui()
 		g.mouseOverButton = encountered || encountered_2
+	}
+	if g.show_credits {
+		draw_credits_box()
 	}
 	rl.EndDrawing()
 }
@@ -1823,9 +1928,17 @@ game_init :: proc() {
 	m_island_sand_inner_model.materials[0].shader = toon_shader
 	m_island_sand_outer_model.materials[0].shader = toon_shader
 
+	// draw_island_model(.Small, rl.Vector3{100., -5., 70.})
+	// draw_island_model(.Medium, rl.Vector3{80., -5., 0.})
+	// draw_island_model(.Small, rl.Vector3{5., -5., 5.})
+	// draw_island_model(.Medium, rl.Vector3{0., -5., 80.})
+	// draw_island_model(.Small, rl.Vector3{50., -5., 120.})
 	islands: [dynamic]Island_Entity
 	append(&islands, Island_Entity{island_size = .Small, position = rl.Vector3{5., -5., 5.}})
-	append(&islands, Island_Entity{island_size = .Medium, position = rl.Vector3{50., -5., 5.}})
+	append(&islands, Island_Entity{island_size = .Small, position = rl.Vector3{100., -5., 70.}})
+	append(&islands, Island_Entity{island_size = .Small, position = rl.Vector3{50., -5., 120.}})
+	append(&islands, Island_Entity{island_size = .Medium, position = rl.Vector3{0., -5., 80.}})
+	append(&islands, Island_Entity{island_size = .Medium, position = rl.Vector3{80., -5., 0.}})
 
 	g0 := rl.Vector3{-1000.0, 0.0, -1000.0}
 	g1 := rl.Vector3{-1000.0, 0.0, 1000.0}
@@ -1856,10 +1969,6 @@ game_init :: proc() {
 	pointModel := rl.LoadModelFromMesh(pointMesh)
 	pointBB := rl.GetModelBoundingBox(pointModel)
 	fmt.println(pointBB)
-
-	boatModel := rl.LoadModel("assets/boat2.glb")
-	boatBb := rl.GetModelBoundingBox(boatModel)
-	fmt.println(boatBb)
 
 	water_vs := fmt.ctprintf("assets/shaders/%s/water.vs", shader_version_folder)
 	water_fs := fmt.ctprintf("assets/shaders/%s/water.fs", shader_version_folder)
@@ -1923,6 +2032,8 @@ game_init :: proc() {
 	raft_model := rl.LoadModel("assets/models/raft.glb")
 	turn_in_model := rl.LoadModel("assets/models/turn_in_point.glb")
 	manufacturer_model := rl.LoadModel("assets/models/manufacturer.glb")
+	hull_model := rl.LoadModel("assets/models/boat_hull.glb")
+	boat_model := rl.LoadModel("assets/models/boat_complete.glb")
 
 	set_model_shader(opened_can, toon_shader)
 	set_model_shader(unopened_can, toon_shader)
@@ -1945,6 +2056,8 @@ game_init :: proc() {
 	set_model_shader(raft_model, toon_shader)
 	set_model_shader(turn_in_model, toon_shader)
 	set_model_shader(manufacturer_model, toon_shader)
+	set_model_shader(hull_model, toon_shader)
+	set_model_shader(boat_model, toon_shader)
 
 	resources := AllResources {
 		s_island_model            = s_island_model,
@@ -1955,7 +2068,7 @@ game_init :: proc() {
 		m_island_sand_outer_model = m_island_sand_outer_model,
 		cubeModel                 = cubeModel,
 		rectangleModel            = rectModel,
-		boatModel                 = boatModel,
+		boatModel                 = boat_model,
 		waterModel                = waterModel,
 		skyModel                  = skyModel,
 		waterShader               = waterShader,
@@ -1978,6 +2091,7 @@ game_init :: proc() {
 		can_helm                  = helm,
 		can_rutter                = rutter,
 		can_propeller             = propeller,
+		can_hull                  = hull_model,
 		construction_model        = construction_model,
 		assembly_model            = assembly_model,
 		resource_node_model       = resource_model,
@@ -2061,7 +2175,7 @@ game_init :: proc() {
 		turn_in_info     = turn_in_info,
 		islands          = islands,
 		logo             = logo,
-		game_state       = .Title,
+		game_state       = .Intro,
 		reward_message   = reward_messages,
 		tutorial_message = tutorial,
 		title_image      = rl.LoadTextureFromImage(logo_image),
@@ -2115,10 +2229,10 @@ game_init :: proc() {
 	// }
 
 	goal_entity := FactoryEntity {
-		position        = rl.Vector3{0, 1., 0.},
+		position        = rl.Vector3{-2, 1., -2.},
 		type            = ModelType.TurnInPoint,
-		color           = rl.PINK,
-		original_color  = rl.ORANGE,
+		color           = rl.WHITE,
+		original_color  = rl.WHITE,
 		highlight_color = rl.GREEN,
 		bb              = rectBB,
 		recipe_type     = .None,
@@ -2186,6 +2300,7 @@ game_shutdown :: proc() {
 	rl.UnloadModel(g.allResources.construction_model)
 	rl.UnloadModel(g.allResources.assembly_model)
 	rl.UnloadModel(g.allResources.island_model)
+	rl.UnloadModel(g.allResources.can_hull)
 	rl.UnloadMusicStream(g.music)
 	rl.UnloadSound(g.sound_1)
 	rl.CloseAudioDevice()

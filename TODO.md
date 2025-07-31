@@ -1,11 +1,11 @@
 ## Automation Gameplay
 
-~The ability to place objects on the ground basics handled~
-~Have a resource entity, with a position and collision we can detect~
-~The ability to click context menus that allow you to do things~
-~Have workers that transport these items between places. Need pathfinding between two points.~
-~Have a transform entity that allows the user to select a recipe to transform the item into something else~
-~Worker has an receive and dropoff building selection. Set these via the context menu and it will build a path between the two~
+[x] The ability to place objects on the ground basics handled
+[x] Have a resource entity, with a position and collision we can detect
+[x] The ability to click context menus that allow you to do things
+[x] Have workers that transport these items between places. Need pathfinding between two points.
+[x] Have a transform entity that allows the user to select a recipe to transform the item into something else
+[x] Worker has an receive and dropoff building selection. Set these via the context menu and it will build a path between the two
 
 Automation constructor
 [x] Timer in Recipe to check for when a product is made
@@ -45,11 +45,11 @@ Automation constructor
 [x] add short tutorial
 [x] Sound
 [x] Title Screen
-[] Remove 'Delete'
+[x] Remove 'Delete'
+[] Texture all the models
 [] Add a storage box workers can travel to  
 [] Add a fuel/electricity component with fuel
 [] Clearer indication on which places a building is hooked up to currently
-[] Texture all the models
 [] need to add better ui
 
 [] Settings Menu (just need music and sound toggles)
